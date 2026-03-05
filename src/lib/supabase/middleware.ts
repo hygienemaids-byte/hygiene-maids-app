@@ -34,8 +34,19 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Allow auth routes without redirect
-  if (request.nextUrl.pathname.startsWith("/auth")) {
+  // Allow auth routes and public routes without redirect
+  const publicPaths = ["/auth", "/book", "/api"];
+  const isPublicRoute = publicPaths.some((path) =>
+    request.nextUrl.pathname.startsWith(path)
+  );
+
+  if (isPublicRoute || request.nextUrl.pathname === "/") {
+    // If user is logged in and visits login page, redirect to admin
+    if (user && request.nextUrl.pathname === "/auth/login") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin";
+      return NextResponse.redirect(url);
+    }
     return supabaseResponse;
   }
 
@@ -45,9 +56,7 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith(path)
   );
 
-  // TODO: Re-enable auth protection before production
-  // For development, allow access without authentication
-  if (isProtectedRoute && !user && process.env.NODE_ENV === "production") {
+  if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     url.searchParams.set("redirect", request.nextUrl.pathname);

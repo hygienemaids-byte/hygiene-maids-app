@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Settings, DollarSign, Percent, MapPin, Tag, Bell, Shield, Palette } from "lucide-react";
+import { Settings, DollarSign, Percent, MapPin, Tag, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -10,48 +9,25 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-
-const pricingMatrix = [
-  { bedrooms: 1, bathrooms: 1, sqft: "0-999", price: 99, hours: 1.5 },
-  { bedrooms: 1, bathrooms: 1, sqft: "1000-1499", price: 109, hours: 1.75 },
-  { bedrooms: 2, bathrooms: 1, sqft: "1000-1499", price: 119, hours: 2.0 },
-  { bedrooms: 2, bathrooms: 2, sqft: "1000-1499", price: 139, hours: 2.25 },
-  { bedrooms: 2, bathrooms: 2, sqft: "1500-1999", price: 149, hours: 2.5 },
-  { bedrooms: 3, bathrooms: 2, sqft: "1500-1999", price: 169, hours: 2.75 },
-  { bedrooms: 3, bathrooms: 2, sqft: "2000-2499", price: 179, hours: 3.0 },
-  { bedrooms: 3, bathrooms: 2.5, sqft: "2000-2499", price: 189, hours: 3.0 },
-  { bedrooms: 3, bathrooms: 3, sqft: "2000-2499", price: 199, hours: 3.25 },
-  { bedrooms: 4, bathrooms: 3, sqft: "2500-2999", price: 229, hours: 3.5 },
-  { bedrooms: 4, bathrooms: 3, sqft: "3000-3499", price: 259, hours: 4.0 },
-  { bedrooms: 5, bathrooms: 3, sqft: "3000-3499", price: 289, hours: 4.5 },
-  { bedrooms: 5, bathrooms: 4, sqft: "3500+", price: 329, hours: 5.0 },
-];
-
-const frequencyDiscounts = [
-  { frequency: "One-Time", discount: 0, label: "No discount" },
-  { frequency: "Weekly", discount: 20, label: "Best value" },
-  { frequency: "Bi-Weekly", discount: 10, label: "Popular" },
-  { frequency: "Monthly", discount: 5, label: "Starter" },
-];
-
-const extras = [
-  { name: "Inside Fridge", price: 35, category: "kitchen" },
-  { name: "Inside Oven", price: 35, category: "kitchen" },
-  { name: "Inside Cabinets", price: 40, category: "kitchen" },
-  { name: "Laundry (wash & fold)", price: 25, category: "laundry" },
-  { name: "Interior Windows", price: 45, category: "windows" },
-  { name: "Baseboards (detailed)", price: 30, category: "deep_clean" },
-  { name: "Garage Sweep", price: 40, category: "exterior" },
-  { name: "Patio/Balcony", price: 30, category: "exterior" },
-  { name: "Dishes", price: 15, category: "kitchen" },
-  { name: "Wall Spot Cleaning", price: 25, category: "deep_clean" },
-  { name: "Blinds (detailed)", price: 35, category: "deep_clean" },
-  { name: "Green Cleaning Products", price: 15, category: "special" },
-  { name: "Organization (per room)", price: 50, category: "special" },
-  { name: "Move-In/Move-Out Deep", price: 75, category: "deep_clean" },
-];
+import { useQuery } from "@/hooks/use-query";
+import { getPricingMatrix, getFrequencyDiscounts, getExtras, getServiceAreas, getSystemSettings } from "@/lib/queries";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
 export default function SettingsPage() {
+  const { data: pricingMatrix, loading: loadingPricing } = useQuery(() => getPricingMatrix(), []);
+  const { data: frequencyDiscounts, loading: loadingDiscounts } = useQuery(() => getFrequencyDiscounts(), []);
+  const { data: extras, loading: loadingExtras } = useQuery(() => getExtras(), []);
+  const { data: serviceAreas, loading: loadingAreas } = useQuery(() => getServiceAreas(), []);
+  const { data: settings, loading: loadingSettings } = useQuery(() => getSystemSettings(), []);
+
+  // Group service areas by city
+  const areasByCity: Record<string, string[]> = {};
+  (serviceAreas || []).forEach((area: any) => {
+    const city = area.city || "Other";
+    if (!areasByCity[city]) areasByCity[city] = [];
+    areasByCity[city].push(area.zip_code);
+  });
+
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
       <div>
@@ -79,30 +55,34 @@ export default function SettingsPage() {
               <CardDescription>Set base prices by bedroom, bathroom, and square footage combination</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-3 px-3 text-xs font-medium text-muted-foreground uppercase">Bedrooms</th>
-                      <th className="text-left py-3 px-3 text-xs font-medium text-muted-foreground uppercase">Bathrooms</th>
-                      <th className="text-left py-3 px-3 text-xs font-medium text-muted-foreground uppercase">Sq Ft</th>
-                      <th className="text-left py-3 px-3 text-xs font-medium text-muted-foreground uppercase">Base Price</th>
-                      <th className="text-left py-3 px-3 text-xs font-medium text-muted-foreground uppercase">Est. Hours</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pricingMatrix.map((row, i) => (
-                      <tr key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                        <td className="py-2.5 px-3 font-medium">{row.bedrooms}</td>
-                        <td className="py-2.5 px-3">{row.bathrooms}</td>
-                        <td className="py-2.5 px-3 text-muted-foreground">{row.sqft}</td>
-                        <td className="py-2.5 px-3 font-semibold text-emerald-600">${row.price}</td>
-                        <td className="py-2.5 px-3 text-muted-foreground">{row.hours}h</td>
+              {loadingPricing ? (
+                <ListSkeleton rows={8} />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-3 px-3 text-xs font-medium text-muted-foreground uppercase">Bedrooms</th>
+                        <th className="text-left py-3 px-3 text-xs font-medium text-muted-foreground uppercase">Bathrooms</th>
+                        <th className="text-left py-3 px-3 text-xs font-medium text-muted-foreground uppercase">Sq Ft</th>
+                        <th className="text-left py-3 px-3 text-xs font-medium text-muted-foreground uppercase">Base Price</th>
+                        <th className="text-left py-3 px-3 text-xs font-medium text-muted-foreground uppercase">Est. Hours</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {(pricingMatrix || []).map((row: any, i: number) => (
+                        <tr key={row.id || i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                          <td className="py-2.5 px-3 font-medium">{row.bedrooms}</td>
+                          <td className="py-2.5 px-3">{row.bathrooms}</td>
+                          <td className="py-2.5 px-3 text-muted-foreground">{row.sqft_range}</td>
+                          <td className="py-2.5 px-3 font-semibold text-emerald-600">${Number(row.base_price).toFixed(0)}</td>
+                          <td className="py-2.5 px-3 text-muted-foreground">{row.estimated_hours}h</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               <div className="mt-4 flex gap-2">
                 <Button size="sm" onClick={() => toast.info("Feature coming soon")}>Add Row</Button>
                 <Button size="sm" variant="outline" onClick={() => toast.info("Feature coming soon")}>Import CSV</Button>
@@ -119,18 +99,23 @@ export default function SettingsPage() {
               <CardDescription>Recurring service discounts applied to the base price</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {frequencyDiscounts.map((fd) => (
-                  <div key={fd.frequency} className="p-4 rounded-xl border border-border bg-muted/20">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-semibold">{fd.frequency}</p>
-                      {fd.label && <Badge variant="outline" className="text-[10px]">{fd.label}</Badge>}
+              {loadingDiscounts ? (
+                <ListSkeleton rows={4} />
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {(frequencyDiscounts || []).map((fd: any) => (
+                    <div key={fd.id} className="p-4 rounded-xl border border-border bg-muted/20">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-semibold">{fd.frequency}</p>
+                        {fd.frequency === "Weekly" && <Badge variant="outline" className="text-[10px]">Best value</Badge>}
+                        {fd.frequency === "Bi-Weekly" && <Badge variant="outline" className="text-[10px]">Popular</Badge>}
+                      </div>
+                      <p className="text-3xl font-bold text-primary">{fd.discount_percentage}%</p>
+                      <p className="text-xs text-muted-foreground mt-1">off base price</p>
                     </div>
-                    <p className="text-3xl font-bold text-primary">{fd.discount}%</p>
-                    <p className="text-xs text-muted-foreground mt-1">off base price</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -143,14 +128,14 @@ export default function SettingsPage() {
                 <div className="space-y-2 w-48">
                   <Label className="text-sm">Sales Tax Rate</Label>
                   <div className="flex items-center gap-2">
-                    <Input type="number" defaultValue="7.5" step="0.1" className="h-9" />
+                    <Input type="number" defaultValue={settings?.tax_rate || "7.5"} step="0.1" className="h-9" />
                     <span className="text-sm text-muted-foreground">%</span>
                   </div>
                 </div>
                 <div className="space-y-2 w-48">
                   <Label className="text-sm">Provider Payout %</Label>
                   <div className="flex items-center gap-2">
-                    <Input type="number" defaultValue="40" step="1" className="h-9" />
+                    <Input type="number" defaultValue={settings?.provider_payout_percentage || "40"} step="1" className="h-9" />
                     <span className="text-sm text-muted-foreground">%</span>
                   </div>
                 </div>
@@ -168,17 +153,21 @@ export default function SettingsPage() {
               <CardDescription>Additional services customers can add to their booking</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {extras.map((extra) => (
-                  <div key={extra.name} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
-                    <div>
-                      <p className="text-sm font-medium">{extra.name}</p>
-                      <Badge variant="outline" className="text-[10px] mt-1">{extra.category}</Badge>
+              {loadingExtras ? (
+                <ListSkeleton rows={6} />
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {(extras || []).map((extra: any) => (
+                    <div key={extra.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
+                      <div>
+                        <p className="text-sm font-medium">{extra.name}</p>
+                        <Badge variant="outline" className="text-[10px] mt-1">{extra.category}</Badge>
+                      </div>
+                      <p className="text-sm font-bold text-emerald-600">${Number(extra.price).toFixed(0)}</p>
                     </div>
-                    <p className="text-sm font-bold text-emerald-600">${extra.price}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
               <Button size="sm" className="mt-4" onClick={() => toast.info("Feature coming soon")}>Add Extra</Button>
             </CardContent>
           </Card>
@@ -192,24 +181,22 @@ export default function SettingsPage() {
               <CardDescription>Zip codes where Hygiene Maids operates</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-semibold mb-2">Dallas-Fort Worth Metro</p>
-                  <div className="flex flex-wrap gap-2">
-                    {["75201","75202","75204","75205","75206","75214","75219","75220","75225","75230","75231","75240","75243","75248","75252","75254","75023","75024","75025","75034","75035","75070","75071","75080","75081","75082","75062","75063"].map((zip) => (
-                      <Badge key={zip} variant="outline" className="text-xs">{zip}</Badge>
-                    ))}
-                  </div>
+              {loadingAreas ? (
+                <ListSkeleton rows={4} />
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(areasByCity).map(([city, zips]) => (
+                    <div key={city}>
+                      <p className="text-sm font-semibold mb-2">{city} Metro</p>
+                      <div className="flex flex-wrap gap-2">
+                        {zips.map((zip) => (
+                          <Badge key={zip} variant="outline" className="text-xs">{zip}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <p className="text-sm font-semibold mb-2">Houston Metro</p>
-                  <div className="flex flex-wrap gap-2">
-                    {["77001","77002","77003","77004","77005","77006","77007","77008","77019","77024","77025","77027","77030","77035","77036","77040","77042","77055","77056","77057","77063","77077"].map((zip) => (
-                      <Badge key={zip} variant="outline" className="text-xs">{zip}</Badge>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              )}
               <Button size="sm" className="mt-4" onClick={() => toast.info("Feature coming soon")}>Add Zip Code</Button>
             </CardContent>
           </Card>
@@ -226,19 +213,19 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm">Business Name</Label>
-                    <Input defaultValue="Hygiene Maids" className="h-9" />
+                    <Input defaultValue={settings?.business_name || "Hygiene Maids"} className="h-9" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm">Contact Email</Label>
-                    <Input defaultValue="hygienemaids@gmail.com" className="h-9" />
+                    <Input defaultValue={settings?.contact_email || "hygienemaids@gmail.com"} className="h-9" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm">Phone</Label>
-                    <Input defaultValue="(214) 555-0000" className="h-9" />
+                    <Input defaultValue={settings?.contact_phone || "(214) 555-0000"} className="h-9" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm">Website</Label>
-                    <Input defaultValue="https://hygienemaids.com" className="h-9" />
+                    <Input defaultValue={settings?.website_url || "https://hygienemaids.com"} className="h-9" />
                   </div>
                 </div>
                 <Button size="sm" onClick={() => toast.success("Settings saved!")}>Save Changes</Button>
