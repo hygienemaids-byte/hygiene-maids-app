@@ -34,15 +34,22 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Allow auth routes without redirect
+  if (request.nextUrl.pathname.startsWith("/auth")) {
+    return supabaseResponse;
+  }
+
   // Protected routes - redirect to login if not authenticated
   const protectedPaths = ["/admin", "/provider"];
   const isProtectedRoute = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
 
-  if (isProtectedRoute && !user) {
+  // TODO: Re-enable auth protection before production
+  // For development, allow access without authentication
+  if (isProtectedRoute && !user && process.env.NODE_ENV === "production") {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/auth/login";
     url.searchParams.set("redirect", request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
