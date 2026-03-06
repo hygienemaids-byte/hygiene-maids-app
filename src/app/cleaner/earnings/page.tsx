@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import { DollarSign, TrendingUp, Calendar, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

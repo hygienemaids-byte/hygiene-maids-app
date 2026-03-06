@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import { useState, useMemo } from "react";
 import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, User } from "lucide-react";

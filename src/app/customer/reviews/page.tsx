@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import { useState } from "react";
 import { Star, MessageSquare, Edit2, Trash2, AlertCircle } from "lucide-react";

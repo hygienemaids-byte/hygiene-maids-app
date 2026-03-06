@@ -1,6 +1,8 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import { Inter, DM_Sans } from "next/font/google";
-import { Toaster } from "sonner";
+import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 const inter = Inter({
@@ -28,8 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${dmSans.variable} antialiased font-sans`}>
-        {children}
-        <Toaster position="top-right" richColors />
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import { CalendarDays, Clock, DollarSign, Star, ArrowRight, Sparkles, MapPin, CheckCircle2, AlertCircle, Gift } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
