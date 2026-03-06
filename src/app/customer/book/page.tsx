@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import { createClient } from "@supabase/supabase-js";
-import BookingWizard from "@/app/(public)/book/BookingWizard";
+import CustomerBookingForm from "./CustomerBookingForm";
 
-// Server-side data fetching — same pricing engine as public booking
 async function getPricingData() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,8 +39,10 @@ function BookingFallback() {
 export default async function CustomerBookPage() {
   const data = await getPricingData();
   return (
-    <Suspense fallback={<BookingFallback />}>
-      <BookingWizard data={data} embedded />
-    </Suspense>
+    <div className="p-6">
+      <Suspense fallback={<BookingFallback />}>
+        <CustomerBookingForm data={data} />
+      </Suspense>
+    </div>
   );
 }

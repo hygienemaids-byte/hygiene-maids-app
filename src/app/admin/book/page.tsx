@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import { createClient } from "@supabase/supabase-js";
-import BookingWizard from "@/app/(public)/book/BookingWizard";
+import AdminBookingForm from "./AdminBookingForm";
 
-// Server-side data fetching — same pricing engine as public booking
 async function getPricingData() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,7 +29,7 @@ function BookingFallback() {
   return (
     <div className="flex items-center justify-center py-20">
       <div className="text-center">
-        <div className="w-10 h-10 border-3 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <div className="w-10 h-10 border-3 border-slate-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         <p className="text-sm text-slate-500 font-medium">Loading booking engine...</p>
       </div>
     </div>
@@ -40,8 +39,10 @@ function BookingFallback() {
 export default async function AdminBookPage() {
   const data = await getPricingData();
   return (
-    <Suspense fallback={<BookingFallback />}>
-      <BookingWizard data={data} embedded />
-    </Suspense>
+    <div className="p-6">
+      <Suspense fallback={<BookingFallback />}>
+        <AdminBookingForm data={data} />
+      </Suspense>
+    </div>
   );
 }

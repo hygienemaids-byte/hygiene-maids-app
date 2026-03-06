@@ -771,8 +771,8 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
 
   return (
     <div className={embedded ? "bg-slate-50" : "min-h-screen bg-gradient-to-b from-[#F8FAFB] to-[#F0F4F3]"}>
-      {/* ═══ HERO (public only) ═══ */}
-      {!embedded && (
+      {/* ═══ HERO (public only, step 1 only) ═══ */}
+      {!embedded && step === 1 && (
         <section className="relative overflow-hidden bg-[#0C1829]">
           <div className="absolute inset-0 opacity-10">
             <img src={IMAGES.luxuryHero} alt="" className="w-full h-full object-cover" />
@@ -795,8 +795,44 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
         </section>
       )}
 
-      {/* Breadcrumbs (public only) */}
-      {!embedded && (
+      {/* ═══ COMPACT PROGRESS BAR (public only, steps 2-7) ═══ */}
+      {!embedded && step > 1 && (
+        <section className="bg-[#0C1829] border-b border-white/5">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#0D9488]/15 flex items-center justify-center">
+                  <Sparkles size={16} className="text-[#0D9488]" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    {STEPS[step - 1]?.label || "Booking"}
+                  </h2>
+                  <p className="text-[11px] text-white/40">Step {step} of {STEPS.length}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:flex items-center gap-1">
+                  {STEPS.map((s, i) => (
+                    <div key={s.id} className={`w-8 h-1 rounded-full transition-all duration-300 ${
+                      i + 1 < step ? "bg-[#0D9488]" : i + 1 === step ? "bg-[#0D9488]/60" : "bg-white/10"
+                    }`} />
+                  ))}
+                </div>
+                {price && (
+                  <div className="text-right ml-4">
+                    <p className="text-[9px] text-white/30 font-bold uppercase tracking-wider">Total</p>
+                    <p className="text-lg font-black text-[#0D9488]" style={{ fontFamily: "'DM Sans', sans-serif" }}>{fmt(price.total)}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Breadcrumbs (public only, step 1 only) */}
+      {!embedded && step === 1 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <Breadcrumbs items={[{ label: "Book Now" }]} />
         </div>
