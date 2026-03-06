@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Search, Star, MapPin, Phone, Mail, MoreHorizontal, CheckCircle2, Clock, DollarSign, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,7 +66,7 @@ export default function ProvidersPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filtered.map((provider: Record<string, any>) => (
-            <Card key={provider.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
+            <Card key={provider.id} className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = `/admin/providers/${provider.id}`}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-4">
@@ -95,10 +97,9 @@ export default function ProvidersPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => toast.info("Feature coming soon")}>View Profile</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toast.info("Feature coming soon")}>Edit</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toast.info("Feature coming soon")}>View Schedule</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toast.info("Feature coming soon")}>Login as Cleaner</DropdownMenuItem>
+                      <DropdownMenuItem asChild><Link href={`/admin/providers/${provider.id}`}>View Profile</Link></DropdownMenuItem>
+                      <DropdownMenuItem asChild><Link href={`/admin/providers/${provider.id}`}>Edit</Link></DropdownMenuItem>
+                      <DropdownMenuItem asChild><Link href={`/admin/providers/${provider.id}?tab=schedule`}>View Schedule</Link></DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

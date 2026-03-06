@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   ClipboardList,
-  Calendar,
   DollarSign,
   User,
   ChevronLeft,
@@ -15,6 +14,7 @@ import {
   Bell,
   Menu,
   Home,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -32,8 +32,8 @@ import { toast } from "sonner";
 const navItems = [
   { href: "/cleaner/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/cleaner/jobs", label: "My Jobs", icon: ClipboardList },
-  { href: "/cleaner/schedule", label: "Schedule", icon: Calendar },
-  { href: "/cleaner/earnings", label: "Earnings", icon: DollarSign },
+  { href: "/cleaner/payments", label: "Payments", icon: DollarSign },
+  { href: "/cleaner/reviews", label: "Reviews", icon: Star },
   { href: "/cleaner/profile", label: "My Profile", icon: User },
 ];
 
