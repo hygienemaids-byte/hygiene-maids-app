@@ -446,7 +446,7 @@ export async function POST(request: NextRequest) {
           supabase, futureDate, body.scheduledTime, duration, body.zipCode
         );
 
-        const { error: childError } = await supabase.from("bookings").insert({
+        const { data: childBooking, error: childError } = await supabase.from("bookings").insert({
           booking_number: childNumber,
           customer_id: customerId,
           provider_id: childProvider,
@@ -480,19 +480,37 @@ export async function POST(request: NextRequest) {
           customer_notes: body.customerNotes || null,
           is_recurring_parent: false,
           recurring_parent_id: booking.id,
-        });
+        }).select("id").single();
 
-        if (!childError) {
+        if (!childError && childBooking) {
           recurringCount++;
-          // Create payment for child
+          // Create payment for child booking (using child's ID, not parent)
           await supabase.from("payments").insert({
-            booking_id: booking.id, // Will be updated when we have the child id
+            booking_id: childBooking.id,
             customer_id: customerId,
             amount: pricing.total,
-            method: "cash",
+            method: body.paymentMethod === "card" ? "card" : "cash",
             status: "pending",
             notes: `Recurring booking ${recurringCount + 1} of 6`,
           });
+          // Copy booking extras to child
+          if (body.selectedExtras?.length > 0) {
+            const { data: extrasData } = await supabase
+              .from("extras")
+              .select("id, price")
+              .in("id", body.selectedExtras);
+            if (extrasData?.length) {
+              await supabase.from("booking_extras").insert(
+                extrasData.map((e: any) => ({
+                  booking_id: childBooking.id,
+                  extra_id: e.id,
+                  quantity: 1,
+                  unit_price: Number(e.price),
+                  total_price: Number(e.price),
+                }))
+              );
+            }
+          }
         }
       }
     }

@@ -21,7 +21,7 @@ import {
 import { useQuery } from "@/hooks/use-query";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import BookingCalendar, { CalendarBooking } from "@/components/BookingCalendar";
+import BookingCalendar, { CalendarBooking, ProviderInfo } from "@/components/BookingCalendar";
 
 const statusColors: Record<string, string> = {
   confirmed: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -48,7 +48,7 @@ async function getAdminBookings() {
     .order("scheduled_time", { ascending: true })
     .limit(200);
   const { data: providers } = await supabase
-    .from("providers").select("id, first_name, last_name, status, payout_percentage")
+    .from("providers").select("id, first_name, last_name, status, payout_percentage, calendar_color")
     .eq("status", "active");
   const { data: customers } = await supabase
     .from("customers").select("id, first_name, last_name, email, phone, address_line1, city, state, zip_code")
@@ -96,6 +96,17 @@ export default function AdminBookings() {
   const [createDialog, setCreateDialog] = useState(false);
   const [createAsQuote, setCreateAsQuote] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+
+  // Provider colors for calendar
+  const DEFAULT_COLORS = ["#3B82F6","#EF4444","#F59E0B","#10B981","#8B5CF6","#EC4899","#06B6D4","#F97316","#6366F1","#14B8A6"];
+  const providerInfoList: ProviderInfo[] = useMemo(() =>
+    providers.map((p: any, i: number) => ({
+      id: p.id,
+      name: `${p.first_name} ${p.last_name}`,
+      color: p.calendar_color || DEFAULT_COLORS[i % DEFAULT_COLORS.length],
+    })),
+    [providers]
+  );
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -294,9 +305,11 @@ export default function AdminBookings() {
             total: Number(b.total),
             customer_name: b.customers ? `${b.customers.first_name} ${b.customers.last_name}` : undefined,
             provider_name: b.providers ? `${b.providers.first_name} ${b.providers.last_name}` : undefined,
+            provider_id: b.provider_id || undefined,
           }))}
           role="admin"
           view="week"
+          providers={providerInfoList}
           onReschedule={async (bookingId, newDate, newTime) => {
             await apiPatch({ id: bookingId, action: "reschedule", scheduledDate: newDate, scheduledTime: newTime }, "Booking rescheduled");
           }}

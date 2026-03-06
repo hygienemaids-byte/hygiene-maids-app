@@ -68,7 +68,7 @@ export default function AdminProviderDetail() {
     hourly_rate: "", payout_percentage: "40",
     address_line1: "", city: "", state: "", zip_code: "",
     max_daily_bookings: "4", notes: "",
-    service_area_zips: "",
+    service_area_zips: "", calendar_color: "",
   });
 
   useEffect(() => {
@@ -110,6 +110,7 @@ export default function AdminProviderDetail() {
         max_daily_bookings: String(prov.max_daily_bookings || 4),
         notes: prov.notes || "",
         service_area_zips: (prov.service_area_zips || []).join(", "),
+        calendar_color: prov.calendar_color || "",
       });
 
       // Load bookings
@@ -190,6 +191,7 @@ export default function AdminProviderDetail() {
         max_daily_bookings: parseInt(form.max_daily_bookings) || 4,
         notes: form.notes,
         service_area_zips: form.service_area_zips.split(",").map((s) => s.trim()).filter(Boolean),
+        calendar_color: form.calendar_color || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -480,6 +482,29 @@ export default function AdminProviderDetail() {
                 <div>
                   <Label className="text-xs">Max Daily Bookings</Label>
                   <Input type="number" min="1" max="10" value={form.max_daily_bookings} onChange={(e) => setForm({ ...form, max_daily_bookings: e.target.value })} className="mt-1 h-9 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Calendar Color</Label>
+                  <p className="text-[10px] text-muted-foreground mb-1.5">Color used to identify this cleaner in the booking calendar</p>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={form.calendar_color || "#3B82F6"}
+                      onChange={(e) => setForm({ ...form, calendar_color: e.target.value })}
+                      className="w-9 h-9 rounded border border-slate-200 cursor-pointer"
+                    />
+                    <div className="flex gap-1.5 flex-wrap">
+                      {["#3B82F6","#EF4444","#F59E0B","#10B981","#8B5CF6","#EC4899","#06B6D4","#F97316"].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setForm({ ...form, calendar_color: c })}
+                          className={`w-6 h-6 rounded-full border-2 transition-all ${form.calendar_color === c ? "border-slate-800 scale-110" : "border-transparent hover:border-slate-300"}`}
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

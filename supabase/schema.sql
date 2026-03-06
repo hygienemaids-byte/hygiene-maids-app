@@ -156,6 +156,7 @@ CREATE TABLE providers (
   hire_date DATE,
   notes TEXT,
   stripe_connect_id TEXT,
+  calendar_color TEXT DEFAULT NULL, -- hex color for calendar display (e.g. #3B82F6)
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
