@@ -198,7 +198,7 @@ export default function Home() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {SERVICES.slice(0, 3).map((service, i) => (
               <FadeIn key={service.id} delay={i * 0.1}>
-                <Link href={`/services#${service.id}`}>
+                <Link href={`/services/${service.slug}`}>
                   <div className="group relative overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-xl transition-all duration-500 cursor-pointer h-full">
                     <div className="h-52 overflow-hidden">
                       <img
@@ -226,7 +226,7 @@ export default function Home() {
           <div className="grid md:grid-cols-2 gap-6 mt-6">
             {SERVICES.slice(3).map((service, i) => (
               <FadeIn key={service.id} delay={i * 0.1}>
-                <Link href={`/services#${service.id}`}>
+                <Link href={`/services/${service.slug}`}>
                   <div className="group relative overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-xl transition-all duration-500 cursor-pointer h-full">
                     <div className="flex flex-col sm:flex-row h-full">
                       <div className="sm:w-48 h-48 sm:h-auto overflow-hidden flex-shrink-0">
@@ -595,10 +595,10 @@ export default function Home() {
               {[
                 { title: "All Services", href: "/services", desc: "View our full service menu" },
                 { title: "Deep Cleaning", href: "/services/deep-cleaning", desc: "Thorough top-to-bottom clean" },
-                { title: "Standard Cleaning", href: "/services/standard-cleaning", desc: "Weekly & biweekly maintenance" },
-                { title: "Move-In/Out", href: "/services/move-in-out-cleaning", desc: "Get your full deposit back" },
+                { title: "Standard Cleaning", href: "/services/standard-house-cleaning", desc: "Weekly & biweekly maintenance" },
+                { title: "Move-In/Out", href: "/services/move-in-move-out-cleaning", desc: "Get your full deposit back" },
                 { title: "Commercial Cleaning", href: "/services/commercial-cleaning", desc: "Office & business spaces" },
-                { title: "Airbnb Cleaning", href: "/services/airbnb-cleaning", desc: "Rental turnover service" },
+                { title: "Airbnb Cleaning", href: "/services/airbnb-rental-turnover-cleaning", desc: "Rental turnover service" },
                 { title: "Service Areas", href: "/locations", desc: "28+ DFW cities" },
                 { title: "Cleaning Blog", href: "/blog", desc: "Tips & expert advice" },
                 { title: "Cleaning Checklist", href: "/checklist", desc: "Free printable guides" },

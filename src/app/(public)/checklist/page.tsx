@@ -580,9 +580,9 @@ export default function Checklist() {
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { title: "Standard Cleaning", href: "/services/standard-cleaning", desc: "Regular home maintenance" },
+                { title: "Standard Cleaning", href: "/services/standard-house-cleaning", desc: "Regular home maintenance" },
                 { title: "Deep Cleaning", href: "/services/deep-cleaning", desc: "Top-to-bottom thorough clean" },
-                { title: "Move-In/Out Cleaning", href: "/services/move-in-out-cleaning", desc: "Get your full deposit back" },
+                { title: "Move-In/Out Cleaning", href: "/services/move-in-move-out-cleaning", desc: "Get your full deposit back" },
                 { title: "Commercial Cleaning", href: "/services/commercial-cleaning", desc: "Office & business cleaning" },
                 { title: "Service Areas", href: "/locations", desc: "28+ DFW cities served" },
                 { title: "Cleaning Blog", href: "/blog", desc: "Tips, guides & advice" },

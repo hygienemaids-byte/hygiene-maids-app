@@ -593,7 +593,7 @@ export default function BookingWizard({ data }: { data: PricingData }) {
             {STEPS.map((s, i) => (
               <div key={s.id} className="flex items-center">
                 <button
-                  onClick={() => s.id < step && setStep(s.id)}
+                  onClick={() => { if (s.id < step) { setStep(s.id); window.scrollTo({ top: 0, behavior: "smooth" }); } }}
                   className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${
                     s.id === step ? "scale-110" : s.id < step ? "cursor-pointer hover:scale-105" : "opacity-35"
                   }`}

@@ -184,7 +184,7 @@ export default function LocationCity() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {SERVICES.map((service, i) => (
               <FadeIn key={service.id} delay={i * 0.08}>
-                <Link href={`/services#${service.slug}`}>
+                <Link href={`/services/${service.slug}`}>
                   <div className="bg-white rounded-2xl p-6 border border-gray-100 hover:border-[#0D9488]/30 hover:shadow-xl transition-all group h-full">
                     <div className="w-12 h-12 rounded-xl bg-[#0D9488]/10 flex items-center justify-center mb-4 group-hover:bg-[#0D9488]/20 transition-colors">
                       <Sparkles size={22} className="text-[#0D9488]" />
@@ -317,9 +317,9 @@ export default function LocationCity() {
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { title: "Standard Cleaning", href: "/services/standard-cleaning", desc: "Weekly & biweekly home cleaning" },
+                { title: "Standard Cleaning", href: "/services/standard-house-cleaning", desc: "Weekly & biweekly home cleaning" },
                 { title: "Deep Cleaning", href: "/services/deep-cleaning", desc: "Thorough top-to-bottom clean" },
-                { title: "Move-In/Out Cleaning", href: "/services/move-in-out-cleaning", desc: "Get your full deposit back" },
+                { title: "Move-In/Out Cleaning", href: "/services/move-in-move-out-cleaning", desc: "Get your full deposit back" },
                 { title: "Cleaning Checklist", href: "/checklist", desc: "Free printable checklists" },
                 { title: "Cleaning Blog", href: "/blog", desc: "Tips, guides & expert advice" },
                 { title: "FAQ", href: "/faq", desc: "Common questions answered" },

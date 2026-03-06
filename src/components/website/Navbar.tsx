@@ -97,7 +97,7 @@ export default function Navbar() {
                 {BRAND.phone}
               </a>
               <Link
-                href="/login"
+                href="/auth/login"
                 className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold text-white bg-[#0C1829] rounded-lg hover:bg-[#0C1829]/90 transition-all duration-300"
               >
                 <User size={15} />
@@ -193,7 +193,7 @@ export default function Navbar() {
               {/* Bottom: Sign In (colored) + Book Now */}
               <div className="flex-shrink-0 border-t border-gray-100 p-4 space-y-2.5">
                 <Link
-                  href="/login"
+                  href="/auth/login"
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white bg-[#0C1829] hover:bg-[#0C1829]/90 transition-all"
                 >
                   <User size={16} />

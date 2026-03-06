@@ -301,7 +301,7 @@ export default function FAQ() {
                 { title: "Service Areas", href: "/locations", desc: "28+ DFW cities served" },
                 { title: "Cleaning Blog", href: "/blog", desc: "Tips & expert advice" },
                 { title: "Deep Cleaning", href: "/services/deep-cleaning", desc: "Thorough top-to-bottom clean" },
-                { title: "Move-In/Out", href: "/services/move-in-out-cleaning", desc: "Get your deposit back" },
+                { title: "Move-In/Out", href: "/services/move-in-move-out-cleaning", desc: "Get your deposit back" },
                 { title: "About Us", href: "/about", desc: "Our story & values" },
                 { title: "Contact Us", href: "/contact", desc: "Get in touch today" },
               ].map((link, i) => (

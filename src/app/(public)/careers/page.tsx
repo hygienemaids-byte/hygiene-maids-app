@@ -106,6 +106,11 @@ export default function Careers() {
     toast.success("Application submitted! We'll be in touch within 48 hours.");
   };
 
+  const goToStep = (s: number) => {
+    setStep(s);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const canAdvance = () => {
     if (step === 1) return form.firstName && form.lastName && form.email && form.phone;
     if (step === 2) return form.position && form.city;
@@ -328,7 +333,7 @@ export default function Careers() {
                     Back to Home
                   </Link>
                   <button
-                    onClick={() => { setSubmitted(false); setStep(1); setForm({ firstName: "", lastName: "", email: "", phone: "", city: "", position: "residential", experience: "none", availability: "full-time", startDate: "immediately", hasCar: "yes", hasLicense: "yes", about: "", referral: "" }); }}
+                    onClick={() => { setSubmitted(false); goToStep(1); setForm({ firstName: "", lastName: "", email: "", phone: "", city: "", position: "residential", experience: "none", availability: "full-time", startDate: "immediately", hasCar: "yes", hasLicense: "yes", about: "", referral: "" }); }}
                     className="inline-flex items-center gap-2 px-6 py-3 text-sm font-bold text-white bg-[#0D9488] rounded-xl hover:bg-[#0B8278] transition-all"
                   >
                     Submit Another Application
@@ -619,7 +624,7 @@ export default function Careers() {
                     {step > 1 ? (
                       <button
                         type="button"
-                        onClick={() => setStep(step - 1)}
+                        onClick={() => goToStep(step - 1)}
                         className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-gray-600 hover:text-[#0C1829] transition-colors"
                       >
                         ← Back
@@ -630,7 +635,7 @@ export default function Careers() {
                     {step < 3 ? (
                       <button
                         type="button"
-                        onClick={() => canAdvance() && setStep(step + 1)}
+                        onClick={() => canAdvance() && goToStep(step + 1)}
                         disabled={!canAdvance()}
                         className="inline-flex items-center gap-2 px-8 py-3 text-sm font-bold text-white bg-[#0D9488] rounded-xl hover:bg-[#0B8278] transition-all shadow-lg shadow-[#0D9488]/25 disabled:opacity-50 disabled:cursor-not-allowed"
                       >

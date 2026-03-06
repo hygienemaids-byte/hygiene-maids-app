@@ -79,8 +79,13 @@ export default function Quote() {
     }));
   };
 
+  const goToStep = (s: Step) => {
+    setStep(s);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleSubmit = () => {
-    setStep(4);
+    goToStep(4);
   };
 
   const selectedService = SERVICES.find(s => s.id === formData.serviceType);
@@ -175,7 +180,7 @@ export default function Quote() {
                     return (
                       <button
                         key={service.id}
-                        onClick={() => { updateField("serviceType", service.id); setStep(2); }}
+                        onClick={() => { updateField("serviceType", service.id); goToStep(2); }}
                         className={`group flex items-start gap-4 p-5 rounded-xl border-2 text-left transition-all duration-200 ${
                           isSelected
                             ? "border-[#0D9488] bg-[#0D9488]/5 shadow-md shadow-[#0D9488]/10"
@@ -348,11 +353,11 @@ export default function Quote() {
                 </div>
 
                 <div className="flex justify-between mt-8 pt-6 border-t border-gray-100">
-                  <button onClick={() => setStep(1)} className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-[#0C1829] transition-colors">
+                  <button onClick={() => goToStep(1)} className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-[#0C1829] transition-colors">
                     <ArrowLeft size={16} /> Back
                   </button>
                   <button
-                    onClick={() => setStep(3)}
+                    onClick={() => goToStep(3)}
                     disabled={!formData.bedrooms || !formData.bathrooms || !formData.frequency}
                     className="flex items-center gap-2 px-7 py-3 text-sm font-semibold text-white bg-[#0D9488] rounded-xl hover:bg-[#0B8278] transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-[#0D9488]/25"
                   >
@@ -459,7 +464,7 @@ export default function Quote() {
                 </div>
 
                 <div className="flex justify-between mt-8 pt-6 border-t border-gray-100">
-                  <button onClick={() => setStep(2)} className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-[#0C1829] transition-colors">
+                  <button onClick={() => goToStep(2)} className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-[#0C1829] transition-colors">
                     <ArrowLeft size={16} /> Back
                   </button>
                   <button
