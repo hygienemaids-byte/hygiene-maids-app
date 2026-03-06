@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { BRAND, IMAGES } from "@/lib/constants";
 import Breadcrumbs from "@/components/website/Breadcrumbs";
@@ -10,7 +11,7 @@ import {
   ArrowRight, ArrowLeft, Calendar, MapPin, Home, Bed,
   Bath, Ruler, Repeat, Plus, CreditCard, User,
   Check, AlertCircle, ChevronDown, Info, Zap, Award,
-  Heart, Lock, Leaf,
+  Heart, Lock, Leaf, Loader2, PartyPopper, Mail,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -134,6 +135,11 @@ export default function BookingWizard({ data }: { data: PricingData }) {
   const [contact, setContact] = useState({
     firstName: "", lastName: "", email: "", phone: "", address: "", notes: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [bookingConfirmed, setBookingConfirmed] = useState<{ bookingNumber: string; bookingId: string } | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const router = useRouter();
 
   // ═══════════════════════════════════════════════════════════════════
   // DYNAMIC CASCADING FILTERS — derived from actual Supabase data
@@ -186,21 +192,23 @@ export default function BookingWizard({ data }: { data: PricingData }) {
     }
   }, [bedrooms, bathrooms, pricingMatrix]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Auto-select defaults on mount ──
+  // ── Auto-select defaults on mount: 1bed / 1bath / 500-999sqft ──
   useEffect(() => {
     if (bedroomOptions.length > 0 && bedrooms === null) {
-      const defaultBed = bedroomOptions.includes(2) ? 2 : bedroomOptions[0];
+      const defaultBed = bedroomOptions.includes(1) ? 1 : bedroomOptions[0];
       setBedrooms(defaultBed);
       // Find default bath for this bedroom
       const baths = pricingMatrix.filter(m => m.bedrooms === defaultBed).map(m => m.bathrooms);
       const uniqueBaths = Array.from(new Set(baths)).sort((a, b) => a - b);
-      const defaultBath = uniqueBaths.includes(2) ? 2 : uniqueBaths[0];
+      const defaultBath = uniqueBaths.includes(1) ? 1 : uniqueBaths[0];
       setBathrooms(defaultBath);
-      // Find default sqft
+      // Find default sqft — prefer 500-999
       const sqfts = pricingMatrix.filter(m => m.bedrooms === defaultBed && m.bathrooms === defaultBath);
-      if (sqfts.length > 0) {
-        const mid = sqfts[Math.floor(sqfts.length / 2)];
-        setSqftKey(`${mid.sqft_min}-${mid.sqft_max}`);
+      const preferred = sqfts.find(m => m.sqft_min === 500 && m.sqft_max === 999);
+      if (preferred) {
+        setSqftKey(`${preferred.sqft_min}-${preferred.sqft_max}`);
+      } else if (sqfts.length > 0) {
+        setSqftKey(`${sqfts[0].sqft_min}-${sqfts[0].sqft_max}`);
       }
     }
   }, [bedroomOptions]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -272,6 +280,20 @@ export default function BookingWizard({ data }: { data: PricingData }) {
     );
   };
 
+  // ── Field-level validation for Step 6 ──
+  const validateContact = useCallback(() => {
+    const errs: Record<string, string> = {};
+    if (!contact.firstName.trim()) errs.firstName = "First name is required";
+    if (!contact.lastName.trim()) errs.lastName = "Last name is required";
+    if (!contact.email.trim()) errs.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) errs.email = "Please enter a valid email";
+    if (!contact.phone.trim()) errs.phone = "Phone number is required";
+    else if (contact.phone.replace(/\D/g, "").length < 10) errs.phone = "Please enter a valid 10-digit phone";
+    if (!contact.address.trim()) errs.address = "Service address is required";
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  }, [contact]);
+
   // ── Can proceed ──
   const canProceed = () => {
     switch (step) {
@@ -285,8 +307,75 @@ export default function BookingWizard({ data }: { data: PricingData }) {
     }
   };
 
-  const next = () => { if (canProceed() && step < 7) setStep(step + 1); };
-  const prev = () => { if (step > 1) setStep(step - 1); };
+  const next = () => {
+    if (step === 6) {
+      if (!validateContact()) return;
+    }
+    if (canProceed() && step < 7) {
+      setStep(step + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+  const prev = () => {
+    if (step > 1) {
+      setStep(step - 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // ── Submit booking ──
+  const handleSubmit = async () => {
+    if (!price || isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const response = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: contact.firstName.trim(),
+          lastName: contact.lastName.trim(),
+          email: contact.email.trim().toLowerCase(),
+          phone: contact.phone.trim(),
+          address: contact.address.trim(),
+          notes: contact.notes.trim(),
+          zipCode,
+          city: zipMatch?.city || "",
+          state: zipMatch?.state || "",
+          bedrooms,
+          bathrooms,
+          sqftRange: sqftKey,
+          frequency,
+          selectedExtras,
+          scheduledDate: selectedDate,
+          scheduledTime: selectedTime,
+          basePrice: price.basePrice,
+          discountAmount: price.discAmt,
+          taxAmount: price.tax,
+          subtotal: price.subtotal,
+          extrasTotal: price.extrasTotal,
+          total: price.total,
+          estimatedHours: price.hours,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create booking");
+      }
+
+      setBookingConfirmed({
+        bookingNumber: result.bookingNumber,
+        bookingId: result.bookingId,
+      });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // ── Frequency label helper ──
   const freqLabel = (f: string) => FREQ_META[f]?.label || f;
@@ -294,6 +383,104 @@ export default function BookingWizard({ data }: { data: PricingData }) {
   /* ═══════════════════════════════════════════════════════════════════
      RENDER
      ═══════════════════════════════════════════════════════════════════ */
+
+  // ═══ BOOKING CONFIRMED ═══
+  if (bookingConfirmed) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#F8FAFB] to-[#F0F4F3]">
+        <section className="relative overflow-hidden bg-[#0C1829]">
+          <div className="absolute inset-0 opacity-10">
+            <img src={IMAGES.luxuryHero} alt="" className="w-full h-full object-cover" />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0C1829]/80 via-[#0C1829]/95 to-[#0C1829]" />
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-18 text-center">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#0D9488]/20 flex items-center justify-center">
+                <CheckCircle size={40} className="text-[#0D9488]" />
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-bold text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                Booking <span className="text-[#0D9488]">Confirmed!</span>
+              </h1>
+              <p className="mt-3 text-lg text-white/50 max-w-md mx-auto">
+                Your cleaning has been scheduled. We&apos;ll take care of everything.
+              </p>
+            </motion.div>
+          </div>
+        </section>
+
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 -mt-8 pb-20">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-2xl shadow-xl shadow-black/5 border border-gray-100 overflow-hidden"
+          >
+            {/* Booking number header */}
+            <div className="bg-gradient-to-r from-[#0D9488] to-[#0B7C72] p-6 text-center">
+              <p className="text-sm text-white/70 font-medium mb-1">Booking Number</p>
+              <p className="text-2xl font-black text-white tracking-wider" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                HM-{bookingConfirmed.bookingNumber}
+              </p>
+            </div>
+
+            {/* Summary */}
+            <div className="p-6 space-y-4">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <SummaryCard icon={MapPin} label="Location" value={`${zipMatch?.city}, ${zipMatch?.state} ${zipCode}`} />
+                <SummaryCard icon={Home} label="Home Size" value={`${bedrooms} bed / ${fmtBath(bathrooms!)} bath`} />
+                <SummaryCard icon={Calendar} label="Date & Time" value={`${new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at ${selectedTime}`} />
+                <SummaryCard icon={Repeat} label="Frequency" value={freqLabel(frequency)} />
+              </div>
+
+              {price && (
+                <div className="bg-[#FAFAF8] rounded-xl p-4 border border-gray-100">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-[#0C1829]">Total</span>
+                    <span className="text-2xl font-black text-[#0D9488]" style={{ fontFamily: "'DM Sans', sans-serif" }}>{fmt(price.total)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* What's next */}
+              <div className="space-y-3 pt-2">
+                <h3 className="text-sm font-bold text-[#0C1829] uppercase tracking-wider">What Happens Next</h3>
+                <div className="space-y-2.5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Mail size={12} className="text-[#0D9488]" />
+                    </div>
+                    <p className="text-sm text-gray-600">A confirmation email has been sent to <strong className="text-[#0C1829]">{contact.email}</strong></p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <User size={12} className="text-[#0D9488]" />
+                    </div>
+                    <p className="text-sm text-gray-600">We&apos;ll assign your dedicated cleaning professional within 24 hours</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Phone size={12} className="text-[#0D9488]" />
+                    </div>
+                    <p className="text-sm text-gray-600">Questions? Call us at <strong className="text-[#0C1829]">{BRAND.phone}</strong></p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <Link href="/" className="flex-1 py-3.5 bg-gradient-to-r from-[#0D9488] to-[#0B7C72] text-white font-bold rounded-xl text-center text-sm hover:shadow-lg hover:shadow-[#0D9488]/25 transition-all">
+                  Back to Home
+                </Link>
+                <Link href="/book" className="flex-1 py-3.5 bg-gray-50 text-[#0C1829] font-bold rounded-xl text-center text-sm hover:bg-gray-100 transition-all border border-gray-100">
+                  Book Another Cleaning
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#F8FAFB] to-[#F0F4F3]">
@@ -718,12 +905,12 @@ export default function BookingWizard({ data }: { data: PricingData }) {
                       <div>
                         <StepHeader icon={User} title="Your contact details" subtitle="We'll send your booking confirmation here" step={6} />
                         <div className="grid sm:grid-cols-2 gap-4">
-                          <FormInput label="First Name" value={contact.firstName} onChange={v => setContact(p => ({ ...p, firstName: v }))} placeholder="John" required />
-                          <FormInput label="Last Name" value={contact.lastName} onChange={v => setContact(p => ({ ...p, lastName: v }))} placeholder="Doe" required />
-                          <FormInput label="Email" value={contact.email} onChange={v => setContact(p => ({ ...p, email: v }))} placeholder="john@example.com" type="email" required />
-                          <FormInput label="Phone" value={contact.phone} onChange={v => setContact(p => ({ ...p, phone: v }))} placeholder="(469) 555-0123" type="tel" required />
+                          <FormInput label="First Name" value={contact.firstName} onChange={v => { setContact(p => ({ ...p, firstName: v })); setFieldErrors(p => ({ ...p, firstName: "" })); }} placeholder="John" required error={fieldErrors.firstName} />
+                          <FormInput label="Last Name" value={contact.lastName} onChange={v => { setContact(p => ({ ...p, lastName: v })); setFieldErrors(p => ({ ...p, lastName: "" })); }} placeholder="Doe" required error={fieldErrors.lastName} />
+                          <FormInput label="Email" value={contact.email} onChange={v => { setContact(p => ({ ...p, email: v })); setFieldErrors(p => ({ ...p, email: "" })); }} placeholder="john@example.com" type="email" required error={fieldErrors.email} />
+                          <FormInput label="Phone" value={contact.phone} onChange={v => { setContact(p => ({ ...p, phone: v })); setFieldErrors(p => ({ ...p, phone: "" })); }} placeholder="(469) 555-0123" type="tel" required error={fieldErrors.phone} />
                           <div className="sm:col-span-2">
-                            <FormInput label="Service Address" value={contact.address} onChange={v => setContact(p => ({ ...p, address: v }))} placeholder="123 Main St, Dallas, TX 75201" required />
+                            <FormInput label="Service Address" value={contact.address} onChange={v => { setContact(p => ({ ...p, address: v })); setFieldErrors(p => ({ ...p, address: "" })); }} placeholder="123 Main St, Dallas, TX 75201" required error={fieldErrors.address} />
                           </div>
                           <div className="sm:col-span-2">
                             <label className="block text-sm font-bold text-[#0C1829] mb-2">Special Instructions <span className="font-normal text-gray-400">(optional)</span></label>
@@ -774,17 +961,39 @@ export default function BookingWizard({ data }: { data: PricingData }) {
                             )}
                           </div>
 
+                          {/* Error message */}
+                          {submitError && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="flex items-center gap-2.5 p-4 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm font-medium"
+                            >
+                              <AlertCircle size={18} className="flex-shrink-0" />
+                              <span>{submitError}</span>
+                            </motion.div>
+                          )}
+
                           {/* CTA */}
                           <motion.button
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.99 }}
-                            className="w-full py-4.5 bg-gradient-to-r from-[#0D9488] to-[#0B7C72] text-white font-bold rounded-xl hover:shadow-xl hover:shadow-[#0D9488]/25 transition-all flex items-center justify-center gap-2.5 text-lg"
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            whileHover={!isSubmitting ? { scale: 1.01 } : {}}
+                            whileTap={!isSubmitting ? { scale: 0.99 } : {}}
+                            className={`w-full py-4.5 font-bold rounded-xl transition-all flex items-center justify-center gap-2.5 text-lg ${
+                              isSubmitting
+                                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                : "bg-gradient-to-r from-[#0D9488] to-[#0B7C72] text-white hover:shadow-xl hover:shadow-[#0D9488]/25"
+                            }`}
                             style={{ fontFamily: "'DM Sans', sans-serif" }}
                           >
-                            <CreditCard size={20} /> Confirm & Proceed to Payment
+                            {isSubmitting ? (
+                              <><Loader2 size={20} className="animate-spin" /> Processing Your Booking...</>
+                            ) : (
+                              <><CreditCard size={20} /> Confirm & Book Now</>
+                            )}
                           </motion.button>
                           <div className="flex items-center justify-center gap-4 text-xs text-gray-400">
-                            <span className="flex items-center gap-1"><Lock size={11} /> Secure Payment</span>
+                            <span className="flex items-center gap-1"><Lock size={11} /> Secure Booking</span>
                             <span className="flex items-center gap-1"><Shield size={11} /> 100% Guarantee</span>
                             <span className="flex items-center gap-1"><Leaf size={11} /> Eco-Friendly</span>
                           </div>
@@ -953,8 +1162,8 @@ function StepHeader({ icon: Icon, title, subtitle, step }: { icon: React.Element
   );
 }
 
-function FormInput({ label, value, onChange, placeholder, type = "text", required }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string; required?: boolean;
+function FormInput({ label, value, onChange, placeholder, type = "text", required, error }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string; required?: boolean; error?: string;
 }) {
   return (
     <div>
@@ -962,8 +1171,13 @@ function FormInput({ label, value, onChange, placeholder, type = "text", require
         {label} {required && <span className="text-[#0D9488]">*</span>}
       </label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)}
-        className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-100 text-sm font-medium focus:outline-none focus:border-[#0D9488] focus:ring-4 focus:ring-[#0D9488]/10 transition-all placeholder:text-gray-300"
+        className={`w-full px-4 py-3.5 rounded-xl border-2 text-sm font-medium focus:outline-none transition-all placeholder:text-gray-300 ${
+          error
+            ? "border-red-300 focus:border-red-400 focus:ring-4 focus:ring-red-100"
+            : "border-gray-100 focus:border-[#0D9488] focus:ring-4 focus:ring-[#0D9488]/10"
+        }`}
         placeholder={placeholder} />
+      {error && <p className="mt-1.5 text-xs text-red-500 font-medium">{error}</p>}
     </div>
   );
 }
