@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, ArrowRight, CheckCircle2, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { fetchUserRole, getDashboardPath } from "@/lib/auth-helpers";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -21,17 +22,23 @@ export default function ResetPasswordPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Supabase will auto-exchange the token from the URL hash
     const supabase = createClient();
-    supabase.auth.onAuthStateChange((event) => {
+
+    // Listen for PASSWORD_RECOVERY event from Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
         setSessionReady(true);
       }
     });
-    // Also check if user is already in a session (e.g., page refresh)
+
+    // Also check if user is already in a session (e.g., page refresh after callback)
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) setSessionReady(true);
     });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
@@ -49,17 +56,28 @@ export default function ResetPasswordPage() {
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ password });
       if (error) {
-        toast.error(error.message);
+        if (error.message.includes("same password")) {
+          toast.error("New password must be different from your current password.");
+        } else {
+          toast.error(error.message);
+        }
         return;
       }
       setSuccess(true);
       toast.success("Password updated successfully!");
-      setTimeout(() => {
-        router.push("/customer/dashboard");
+
+      // Redirect to the correct dashboard based on role
+      setTimeout(async () => {
+        try {
+          const roleData = await fetchUserRole();
+          router.push(getDashboardPath(roleData.role));
+        } catch {
+          router.push("/customer/dashboard");
+        }
         router.refresh();
       }, 2000);
     } catch {
-      toast.error("An unexpected error occurred");
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -183,7 +201,7 @@ export default function ResetPasswordPage() {
             <Button
               type="submit"
               className="w-full h-11 gap-2 font-medium bg-teal-600 hover:bg-teal-700"
-              disabled={loading || password !== confirmPassword}
+              disabled={loading || (confirmPassword.length > 0 && password !== confirmPassword)}
             >
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, ArrowRight, Shield, Lock, BarChart3, Users, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { fetchUserRole } from "@/lib/auth-helpers";
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
@@ -24,29 +25,51 @@ export default function AdminLoginPage() {
 
     try {
       const supabase = createClient();
+
+      // Step 1: Authenticate with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        toast.error(error.message);
+        if (error.message === "Invalid login credentials") {
+          toast.error("Invalid email or password. Please try again.");
+        } else if (error.message === "Email not confirmed") {
+          toast.error("Please verify your email before signing in.");
+        } else {
+          toast.error(error.message);
+        }
         return;
       }
 
-      // Verify admin role
-      const role = data.user?.user_metadata?.role;
-      if (role !== "admin") {
-        toast.error("Access denied. This login is for administrators only.");
-        await supabase.auth.signOut();
-        return;
-      }
+      // Step 2: Verify admin role from profiles table (source of truth)
+      try {
+        const roleData = await fetchUserRole();
 
-      toast.success("Welcome back, Admin!");
-      router.push("/admin");
-      router.refresh();
+        if (roleData.role !== "admin") {
+          toast.error("Access denied. This login is for administrators only.");
+          await supabase.auth.signOut();
+          return;
+        }
+
+        toast.success(`Welcome back, ${roleData.firstName || "Admin"}!`);
+        router.push("/admin");
+        router.refresh();
+      } catch (roleError) {
+        // If role API fails, fall back to user_metadata check
+        const metaRole = data.user?.user_metadata?.role;
+        if (metaRole === "admin") {
+          toast.success("Welcome back, Admin!");
+          router.push("/admin");
+          router.refresh();
+        } else {
+          toast.error("Access denied. This login is for administrators only.");
+          await supabase.auth.signOut();
+        }
+      }
     } catch {
-      toast.error("An unexpected error occurred");
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }

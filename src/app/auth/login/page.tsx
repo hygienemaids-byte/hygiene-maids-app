@@ -1,15 +1,16 @@
 // @ts-nocheck
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, ArrowRight, CheckCircle2, CalendarDays, CreditCard, Star } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, CheckCircle2, CalendarDays, CreditCard, Star, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { fetchUserRole, getDashboardPath } from "@/lib/auth-helpers";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -19,6 +20,14 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect");
+  const errorParam = searchParams.get("error");
+
+  // Show error from URL params (e.g., from auth callback)
+  useEffect(() => {
+    if (errorParam === "auth_callback_error") {
+      toast.error("Authentication failed. Please try signing in again.");
+    }
+  }, [errorParam]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,33 +35,60 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient();
+
+      // Step 1: Authenticate with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        toast.error(error.message);
+        if (error.message === "Invalid login credentials") {
+          toast.error("Invalid email or password. Please try again.");
+        } else if (error.message === "Email not confirmed") {
+          toast.error("Please check your email and verify your account before signing in.");
+        } else {
+          toast.error(error.message);
+        }
         return;
       }
 
       toast.success("Welcome back!");
 
-      // Role-based redirect
-      if (redirectTo) {
-        router.push(redirectTo);
-      } else {
+      // Step 2: Fetch role from profiles table for accurate routing
+      try {
+        const roleData = await fetchUserRole();
+        const role = roleData.role;
+
+        // If admin tries to log in here, redirect them to admin login
+        if (role === "admin") {
+          toast.info("Please use the admin login page.");
+          router.push("/admin");
+          router.refresh();
+          return;
+        }
+
+        // Role-based redirect
+        if (redirectTo) {
+          router.push(redirectTo);
+        } else {
+          router.push(getDashboardPath(role));
+        }
+        router.refresh();
+      } catch {
+        // Fallback: use user_metadata if API fails
         const role = data.user?.user_metadata?.role;
-        if (role === "provider" || role === "cleaner") {
+        if (redirectTo) {
+          router.push(redirectTo);
+        } else if (role === "provider" || role === "cleaner") {
           router.push("/cleaner/dashboard");
         } else {
-          // Default to customer dashboard for customers and unknown roles
           router.push("/customer/dashboard");
         }
+        router.refresh();
       }
-      router.refresh();
     } catch {
-      toast.error("An unexpected error occurred");
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -136,6 +172,17 @@ export default function LoginPage() {
               Sign in to your account to continue
             </p>
           </div>
+
+          {errorParam && (
+            <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-red-700">
+                {errorParam === "auth_callback_error"
+                  ? "Authentication failed. Please try signing in again."
+                  : "An error occurred. Please try again."}
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">

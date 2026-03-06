@@ -48,7 +48,7 @@ export default function SignUpPage() {
     try {
       const supabase = createClient();
 
-      // 1. Create auth user
+      // 1. Create auth user with metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -59,38 +59,45 @@ export default function SignUpPage() {
             phone: phone.replace(/\D/g, ""),
             role: "customer",
           },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
       if (authError) {
-        toast.error(authError.message);
+        if (authError.message.includes("already registered")) {
+          toast.error("An account with this email already exists. Please sign in instead.");
+        } else {
+          toast.error(authError.message);
+        }
         return;
       }
 
-      // 2. Link to existing customer record if booking exists, or create new customer via API
+      // 2. Try to link/create customer record via API (non-blocking)
       if (authData.user) {
-        const res = await fetch("/api/customers", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "link_or_create",
-            profileId: authData.user.id,
-            email,
-            firstName,
-            lastName,
-            phone: phone.replace(/\D/g, ""),
-            bookingNumber: bookingNumber || undefined,
-          }),
-        });
-        if (!res.ok) {
-          console.error("Failed to link customer record");
+        try {
+          await fetch("/api/customers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "link_or_create",
+              profileId: authData.user.id,
+              email,
+              firstName,
+              lastName,
+              phone: phone.replace(/\D/g, ""),
+              bookingNumber: bookingNumber || undefined,
+            }),
+          });
+        } catch {
+          // Non-critical — profile will be created by database trigger or on first login
+          console.warn("Customer record linking skipped");
         }
       }
 
       setSuccess(true);
       toast.success("Account created successfully!");
 
-      // If email confirmation is disabled, redirect immediately
+      // If email confirmation is disabled (session exists immediately), redirect
       if (authData.session) {
         setTimeout(() => {
           router.push(redirectTo || "/customer/dashboard");
@@ -98,7 +105,7 @@ export default function SignUpPage() {
         }, 1500);
       }
     } catch {
-      toast.error("An unexpected error occurred");
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -125,7 +132,7 @@ export default function SignUpPage() {
               </Button>
             </Link>
             <Link href="/auth/login">
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full mt-2">
                 Sign In
               </Button>
             </Link>
@@ -287,6 +294,23 @@ export default function SignUpPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {/* Password strength indicators */}
+              <div className="flex gap-1 mt-1">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-1 flex-1 rounded-full transition-colors ${
+                      password.length >= i * 3
+                        ? password.length >= 12
+                          ? "bg-emerald-500"
+                          : password.length >= 8
+                          ? "bg-teal-500"
+                          : "bg-amber-500"
+                        : "bg-slate-200"
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -300,12 +324,15 @@ export default function SignUpPage() {
                 required
                 className="h-11"
               />
+              {confirmPassword && password !== confirmPassword && (
+                <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+              )}
             </div>
 
             <Button
               type="submit"
               className="w-full h-11 gap-2 font-medium bg-teal-600 hover:bg-teal-700"
-              disabled={loading}
+              disabled={loading || (confirmPassword.length > 0 && password !== confirmPassword)}
             >
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

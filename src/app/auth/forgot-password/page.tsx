@@ -21,15 +21,20 @@ export default function ForgotPasswordPage() {
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
       });
       if (error) {
-        toast.error(error.message);
+        if (error.message.includes("rate limit")) {
+          toast.error("Too many requests. Please wait a few minutes before trying again.");
+        } else {
+          toast.error(error.message);
+        }
         return;
       }
       setSent(true);
+      toast.success("Reset link sent! Check your email.");
     } catch {
-      toast.error("An unexpected error occurred");
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }

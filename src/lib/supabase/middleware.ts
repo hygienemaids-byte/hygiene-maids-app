@@ -29,28 +29,30 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresh session if expired
+  // Refresh session if expired - IMPORTANT: must call getUser() to refresh tokens
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
 
-  // Public routes — no auth required
-  const publicPaths = ["/auth", "/book", "/api"];
+  // ============================================================
+  // PUBLIC ROUTES — no auth required
+  // ============================================================
+  const publicPrefixes = ["/auth", "/book", "/api"];
   const publicPages = [
     "/about", "/blog", "/careers", "/checklist", "/contact",
     "/faq", "/locations", "/privacy-policy", "/quote", "/services", "/terms-of-service",
   ];
   const isPublicRoute =
     pathname === "/" ||
-    publicPaths.some((path) => pathname.startsWith(path)) ||
+    publicPrefixes.some((path) => pathname.startsWith(path)) ||
     publicPages.some((path) => pathname.startsWith(path));
 
   if (isPublicRoute) {
     // If logged-in user visits the customer/cleaner login page, redirect to their dashboard
     if (user && pathname === "/auth/login") {
-      const role = user.user_metadata?.role;
+      const role = await getUserRole(user, supabase);
       const url = request.nextUrl.clone();
       if (role === "admin") {
         url.pathname = "/admin";
@@ -64,7 +66,7 @@ export async function updateSession(request: NextRequest) {
 
     // If logged-in admin visits admin login page, redirect to admin dashboard
     if (user && pathname === "/auth/admin") {
-      const role = user.user_metadata?.role;
+      const role = await getUserRole(user, supabase);
       if (role === "admin") {
         const url = request.nextUrl.clone();
         url.pathname = "/admin";
@@ -75,7 +77,9 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Protected routes — redirect to appropriate login if not authenticated
+  // ============================================================
+  // PROTECTED ROUTES — require authentication
+  // ============================================================
   const isAdminRoute = pathname.startsWith("/admin");
   const isCleanerRoute = pathname.startsWith("/cleaner") || pathname.startsWith("/provider");
   const isCustomerRoute = pathname.startsWith("/customer");
@@ -91,8 +95,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Role-based access control for authenticated users
-  const role = user.user_metadata?.role;
+  // ============================================================
+  // ROLE-BASED ACCESS CONTROL
+  // ============================================================
+  const role = await getUserRole(user, supabase);
 
   // Admin routes: only admin role
   if (isAdminRoute && role !== "admin") {
@@ -113,4 +119,31 @@ export async function updateSession(request: NextRequest) {
   }
 
   return supabaseResponse;
+}
+
+/**
+ * Get user role with fallback chain:
+ * 1. Check user_metadata.role (fast, set during signup or synced by /api/auth/role)
+ * 2. If not available, query profiles table directly
+ * 3. Default to "customer" if nothing found
+ */
+async function getUserRole(user: any, supabase: any): Promise<string> {
+  // First try user_metadata (fastest — no extra DB query)
+  const metaRole = user.user_metadata?.role;
+  if (metaRole) return metaRole;
+
+  // Fallback: query profiles table
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role) return profile.role;
+  } catch {
+    // If profiles query fails (e.g., RLS issue), fall through to default
+  }
+
+  return "customer";
 }
