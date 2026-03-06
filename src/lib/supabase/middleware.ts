@@ -34,34 +34,81 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const pathname = request.nextUrl.pathname;
+
   // Public routes — no auth required
   const publicPaths = ["/auth", "/book", "/api"];
+  const publicPages = [
+    "/about", "/blog", "/careers", "/checklist", "/contact",
+    "/faq", "/locations", "/privacy-policy", "/quote", "/services", "/terms-of-service",
+  ];
   const isPublicRoute =
-    request.nextUrl.pathname === "/" ||
-    publicPaths.some((path) => request.nextUrl.pathname.startsWith(path)) ||
-    ["/about", "/blog", "/careers", "/checklist", "/contact", "/faq", "/locations", "/privacy-policy", "/quote", "/services", "/terms-of-service"].some(
-      (path) => request.nextUrl.pathname.startsWith(path)
-    );
+    pathname === "/" ||
+    publicPaths.some((path) => pathname.startsWith(path)) ||
+    publicPages.some((path) => pathname.startsWith(path));
 
   if (isPublicRoute) {
-    if (user && request.nextUrl.pathname === "/auth/login") {
+    // If logged-in user visits the customer/cleaner login page, redirect to their dashboard
+    if (user && pathname === "/auth/login") {
+      const role = user.user_metadata?.role;
       const url = request.nextUrl.clone();
-      url.pathname = "/admin";
+      if (role === "admin") {
+        url.pathname = "/admin";
+      } else if (role === "provider" || role === "cleaner") {
+        url.pathname = "/cleaner/dashboard";
+      } else {
+        url.pathname = "/customer/dashboard";
+      }
       return NextResponse.redirect(url);
     }
+
+    // If logged-in admin visits admin login page, redirect to admin dashboard
+    if (user && pathname === "/auth/admin") {
+      const role = user.user_metadata?.role;
+      if (role === "admin") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/admin";
+        return NextResponse.redirect(url);
+      }
+    }
+
     return supabaseResponse;
   }
 
-  // Protected routes — redirect to login if not authenticated
-  const protectedPaths = ["/admin", "/provider", "/customer", "/cleaner"];
-  const isProtectedRoute = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
+  // Protected routes — redirect to appropriate login if not authenticated
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isCleanerRoute = pathname.startsWith("/cleaner") || pathname.startsWith("/provider");
+  const isCustomerRoute = pathname.startsWith("/customer");
 
-  if (isProtectedRoute && !user) {
+  if (!user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
-    url.searchParams.set("redirect", request.nextUrl.pathname);
+    if (isAdminRoute) {
+      url.pathname = "/auth/admin";
+    } else {
+      url.pathname = "/auth/login";
+    }
+    url.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  // Role-based access control for authenticated users
+  const role = user.user_metadata?.role;
+
+  // Admin routes: only admin role
+  if (isAdminRoute && role !== "admin") {
+    const url = request.nextUrl.clone();
+    if (role === "provider" || role === "cleaner") {
+      url.pathname = "/cleaner/dashboard";
+    } else {
+      url.pathname = "/customer/dashboard";
+    }
+    return NextResponse.redirect(url);
+  }
+
+  // Cleaner routes: only provider/cleaner role (and admin)
+  if (isCleanerRoute && role !== "provider" && role !== "cleaner" && role !== "admin") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/customer/dashboard";
     return NextResponse.redirect(url);
   }
 

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -15,6 +15,9 @@ import {
   Menu,
   Home,
   Plus,
+  Calendar,
+  Star,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -26,19 +29,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 const navItems = [
   { href: "/customer/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/customer/bookings", label: "My Bookings", icon: CalendarDays },
+  { href: "/customer/schedule", label: "Schedule", icon: Calendar },
   { href: "/customer/payments", label: "Payments", icon: CreditCard },
+  { href: "/customer/reviews", label: "My Reviews", icon: Star },
   { href: "/customer/profile", label: "My Profile", icon: User },
   { href: "/customer/referrals", label: "Refer & Earn", icon: Gift },
 ];
 
-function SidebarNav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+function SidebarNav({ collapsed, onToggle, initials }: { collapsed: boolean; onToggle: () => void; initials: string }) {
   const pathname = usePathname();
   return (
     <div
@@ -75,7 +79,7 @@ function SidebarNav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () 
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 py-2 px-2 space-y-0.5">
+      <nav className="flex-1 py-2 px-2 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -125,7 +129,7 @@ function SidebarNav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () 
   );
 }
 
-function TopBar() {
+function TopBar({ initials, name }: { initials: string; name: string }) {
   const router = useRouter();
 
   const handleSignOut = async () => {
@@ -149,7 +153,9 @@ function TopBar() {
       </Sheet>
 
       <div className="hidden lg:block">
-        <h2 className="text-lg font-semibold text-slate-900">Welcome back!</h2>
+        <h2 className="text-lg font-semibold text-slate-900">
+          {name ? `Welcome back, ${name}!` : "Welcome back!"}
+        </h2>
       </div>
 
       <div className="flex items-center gap-2">
@@ -161,11 +167,11 @@ function TopBar() {
             <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
               <Avatar className="w-8 h-8">
                 <AvatarFallback className="bg-teal-600 text-white text-xs font-semibold">
-                  CU
+                  {initials || "CU"}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium leading-none text-slate-900">My Account</p>
+                <p className="text-sm font-medium leading-none text-slate-900">{name || "My Account"}</p>
               </div>
             </button>
           </DropdownMenuTrigger>
@@ -174,6 +180,18 @@ function TopBar() {
               <Link href="/customer/profile">
                 <User className="w-4 h-4 mr-2" />
                 Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/customer/bookings">
+                <CalendarDays className="w-4 h-4 mr-2" />
+                My Bookings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/customer/payments">
+                <CreditCard className="w-4 h-4 mr-2" />
+                Payments
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -229,19 +247,57 @@ function MobileNav() {
           );
         })}
       </nav>
+      <div className="px-2 pb-4">
+        <Link
+          href="/"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-slate-500 hover:bg-slate-50"
+        >
+          <Home className="w-[18px] h-[18px]" />
+          <span>Back to Website</span>
+        </Link>
+      </div>
     </div>
   );
 }
 
 export default function CustomerLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [initials, setInitials] = useState("CU");
+  const [name, setName] = useState("");
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: customer } = await supabase
+          .from("customers")
+          .select("first_name, last_name")
+          .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
+          .single();
+
+        if (customer) {
+          const fn = customer.first_name || "";
+          const ln = customer.last_name || "";
+          setInitials(`${fn[0] || ""}${ln[0] || ""}`.toUpperCase() || "CU");
+          setName(fn);
+        }
+      } catch {
+        // Silently fail — layout still works
+      }
+    }
+    loadUser();
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <div className="hidden lg:block">
-        <SidebarNav collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+        <SidebarNav collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} initials={initials} />
       </div>
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar />
+        <TopBar initials={initials} name={name} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
