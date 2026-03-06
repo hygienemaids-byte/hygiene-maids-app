@@ -8,17 +8,27 @@ import { BRAND } from "@/lib/constants";
 import {
   Phone, Shield, Star, Clock, CheckCircle, Sparkles,
   Calendar, MapPin, Home, Bed, Bath, Ruler, Repeat, Plus,
-  CreditCard, User, Check, AlertCircle, ChevronDown, Zap,
+  CreditCard, User, Check, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Zap,
   Award, Lock, Leaf, Loader2, PartyPopper, Mail,
   PawPrint, Key, Building, ArrowDown,
+  Refrigerator, WashingMachine, CookingPot, Blinds, PaintBucket,
+  Package, Car, TreePalm, Flower2,
 } from "lucide-react";
 import {
   type PricingData, type TimeSlot, type ContactInfo, type ServiceArea,
-  FREQ_ORDER, FREQ_META, EXTRA_ICONS,
+  FREQ_ORDER, FREQ_META,
   fmt, round2, fmtBath, fmtSqft, formatPhone,
   calculatePrice, getAvailableDates, getFallbackTimeSlots,
   validateContact, buildBookingPayload,
 } from "@/lib/booking-utils";
+
+const EXTRA_ICON_MAP: Record<string, React.ElementType> = {
+  "Inside Oven": CookingPot, "Inside Fridge": Refrigerator, "Inside Cabinets": Package,
+  "Laundry (Wash & Fold)": WashingMachine, "Inside Windows": Blinds, "Baseboards": PaintBucket,
+  "Wall Cleaning": Home, "Garage Sweep": Car, "Patio/Balcony": TreePalm,
+  "Pet Hair Treatment": PawPrint, "Green Cleaning Upgrade": Flower2, "Organizing (per room)": Package,
+  "Dishes": CookingPot, "Blinds Cleaning": Blinds,
+};
 
 /* ═══════════════════════════════════════════════════════════════════
    CUSTOMER BOOKING FORM — Single-page, pre-populated, compact
@@ -51,6 +61,10 @@ export default function CustomerBookingForm({ data }: { data: PricingData }) {
   // ── Availability ──
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date(); return { year: now.getFullYear(), month: now.getMonth() };
+  });
 
   // ── Submission ──
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -129,16 +143,8 @@ export default function CustomerBookingForm({ data }: { data: PricingData }) {
   // CASCADING FILTERS
   // ═══════════════════════════════════════════════════════════════════
 
-  const bedroomOptions = useMemo(() => {
-    const set = new Set(pricingMatrix.map(m => m.bedrooms));
-    return Array.from(set).sort((a, b) => a - b);
-  }, [pricingMatrix]);
-
-  const bathroomOptions = useMemo(() => {
-    if (bedrooms === null) return [];
-    const set = new Set(pricingMatrix.filter(m => m.bedrooms === bedrooms).map(m => m.bathrooms));
-    return Array.from(set).sort((a, b) => a - b);
-  }, [pricingMatrix, bedrooms]);
+  const bedroomOptions = useMemo(() => [1, 2, 3, 4, 5, 6], []);
+  const bathroomOptions = useMemo(() => [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6], []);
 
   const sqftOptions = useMemo(() => {
     if (bedrooms === null || bathrooms === null) return [];
@@ -148,15 +154,7 @@ export default function CustomerBookingForm({ data }: { data: PricingData }) {
       .map(m => ({ key: `${m.sqft_min}-${m.sqft_max}`, min: m.sqft_min, max: m.sqft_max, label: fmtSqft(m.sqft_min, m.sqft_max) }));
   }, [pricingMatrix, bedrooms, bathrooms]);
 
-  // Auto-reset downstream
-  useEffect(() => {
-    if (bedrooms === null) return;
-    const validBaths = pricingMatrix.filter(m => m.bedrooms === bedrooms).map(m => m.bathrooms);
-    if (bathrooms !== null && !validBaths.includes(bathrooms)) {
-      setBathrooms(null); setSqftKey(null);
-    }
-  }, [bedrooms, pricingMatrix]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  // Auto-select sqft when bed/bath change
   useEffect(() => {
     if (bedrooms === null || bathrooms === null) { setSqftKey(null); return; }
     const validSqft = pricingMatrix
@@ -208,6 +206,21 @@ export default function CustomerBookingForm({ data }: { data: PricingData }) {
   }, [frequencyDiscounts]);
 
   const availableDates = useMemo(() => getAvailableDates(), []);
+
+  // Calendar helpers
+  const availableDateSet = useMemo(() => {
+    const set = new Set<string>();
+    availableDates.forEach(d => set.add(d.toISOString().split("T")[0]));
+    return set;
+  }, [availableDates]);
+
+  const calendarDays = useMemo(() => {
+    const firstDay = new Date(calendarMonth.year, calendarMonth.month, 1).getDay();
+    const daysInMonth = new Date(calendarMonth.year, calendarMonth.month + 1, 0).getDate();
+    const days: (number | null)[] = Array.from({ length: firstDay }, () => null);
+    for (let d = 1; d <= daysInMonth; d++) days.push(d);
+    return days;
+  }, [calendarMonth]);
 
   // ═══════════════════════════════════════════════════════════════════
   // TIME SLOTS
@@ -546,22 +559,22 @@ export default function CustomerBookingForm({ data }: { data: PricingData }) {
             <div className="grid grid-cols-2 gap-2">
               {extras.map(extra => {
                 const isSel = selectedExtras.includes(extra.id);
-                const icon = EXTRA_ICONS[extra.name] || "✨";
+                const IconComp = EXTRA_ICON_MAP[extra.name] || Sparkles;
                 return (
                   <button key={extra.id} onClick={() => toggleExtra(extra.id)}
-                    className={`flex items-center gap-2.5 p-3 rounded-lg border text-left transition-all ${
+                    className={`flex items-center gap-2.5 p-3.5 rounded-lg border text-left transition-all ${
                       isSel ? "border-teal-500 bg-teal-50/50" : "border-slate-200 hover:border-slate-300"
                     }`}>
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm ${
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       isSel ? "bg-teal-600 text-white" : "bg-slate-50"
                     }`}>
-                      {isSel ? <Check size={14} className="text-white" /> : <span>{icon}</span>}
+                      {isSel ? <Check size={16} className="text-white" /> : <IconComp size={16} className="text-teal-600" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-slate-900 truncate">{extra.name}</div>
-                      <div className="text-[10px] text-slate-400 truncate">{extra.description}</div>
+                      <div className="text-sm font-bold text-slate-900 truncate">{extra.name}</div>
+                      <div className="text-xs text-slate-400 truncate">{extra.description}</div>
                     </div>
-                    <span className={`text-xs font-bold flex-shrink-0 ${isSel ? "text-teal-600" : "text-slate-400"}`}>
+                    <span className={`text-sm font-bold flex-shrink-0 ${isSel ? "text-teal-600" : "text-slate-400"}`}>
                       +{fmt(Number(extra.price))}
                     </span>
                   </button>
@@ -574,47 +587,99 @@ export default function CustomerBookingForm({ data }: { data: PricingData }) {
           <FormSection title="Date & Time" icon={Calendar} defaultOpen>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-2">Select Date</label>
-                <div className="grid grid-cols-7 gap-1.5">
-                  {availableDates.map(d => {
-                    const ds = d.toISOString().split("T")[0];
-                    return (
-                      <button key={ds} onClick={() => setSelectedDate(ds)}
-                        className={`p-2 rounded-lg text-center transition-all ${
-                          selectedDate === ds
-                            ? "bg-teal-600 text-white shadow-md shadow-teal-600/20"
-                            : "bg-slate-50 hover:bg-slate-100 border border-slate-200"
-                        }`}>
-                        <div className={`text-[9px] font-bold uppercase ${selectedDate === ds ? "text-white/70" : "text-slate-400"}`}>
-                          {d.toLocaleDateString("en-US", { weekday: "short" })}
-                        </div>
-                        <div className="text-sm font-bold mt-0.5">{d.getDate()}</div>
-                        <div className={`text-[9px] ${selectedDate === ds ? "text-white/70" : "text-slate-400"}`}>
-                          {d.toLocaleDateString("en-US", { month: "short" })}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                <label className="block text-sm font-semibold text-slate-600 mb-2">Select Date</label>
+                <button
+                  onClick={() => setShowCalendar(true)}
+                  className={`w-full p-3.5 rounded-lg border text-left transition-all flex items-center gap-3 ${
+                    selectedDate ? "border-teal-500 bg-teal-50/30" : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <Calendar size={18} className={selectedDate ? "text-teal-600" : "text-slate-400"} />
+                  <div className="flex-1">
+                    {selectedDate ? (
+                      <span className="text-sm font-bold text-slate-900">
+                        {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-slate-400">Choose a date...</span>
+                    )}
+                  </div>
+                  <ChevronRight size={16} className="text-slate-400" />
+                </button>
               </div>
+
+              {/* Calendar Modal */}
+              <AnimatePresence>
+                {showCalendar && (
+                  <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                    onClick={() => setShowCalendar(false)}
+                  >
+                    <motion.div
+                      initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                      onClick={e => e.stopPropagation()}
+                      className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                    >
+                      <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                        <button onClick={() => setCalendarMonth(prev => { const d = new Date(prev.year, prev.month - 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                          className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors">
+                          <ChevronLeft size={20} className="text-slate-600" />
+                        </button>
+                        <h3 className="text-lg font-bold text-slate-900">
+                          {new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                        </h3>
+                        <button onClick={() => setCalendarMonth(prev => { const d = new Date(prev.year, prev.month + 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                          className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors">
+                          <ChevronRight size={20} className="text-slate-600" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-7 px-5 pt-3">
+                        {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
+                          <div key={d} className="text-center text-xs font-bold text-slate-400 py-2">{d}</div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7 px-5 pb-5 gap-1">
+                        {calendarDays.map((day, i) => {
+                          if (day === null) return <div key={`e-${i}`} />;
+                          const dateStr = `${calendarMonth.year}-${String(calendarMonth.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                          const isAvail = availableDateSet.has(dateStr);
+                          const isSel = selectedDate === dateStr;
+                          return (
+                            <button key={dateStr} disabled={!isAvail}
+                              onClick={() => { setSelectedDate(dateStr); setShowCalendar(false); }}
+                              className={`w-full aspect-square rounded-xl flex items-center justify-center text-sm font-semibold transition-all ${
+                                isSel ? "bg-teal-600 text-white shadow-lg shadow-teal-600/25"
+                                  : isAvail ? "hover:bg-teal-50 text-slate-900 cursor-pointer" : "text-slate-200 cursor-not-allowed"
+                              }`}>{day}</button>
+                          );
+                        })}
+                      </div>
+                      <div className="px-5 pb-5">
+                        <button onClick={() => setShowCalendar(false)} className="w-full py-3 rounded-xl bg-slate-100 text-sm font-bold text-slate-600 hover:bg-slate-200 transition-colors">Close</button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {selectedDate && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-2">
+                  <label className="block text-sm font-semibold text-slate-600 mb-2">
                     Select Time {loadingSlots && <Loader2 size={12} className="inline-block ml-1 animate-spin text-teal-600" />}
                   </label>
                   {loadingSlots ? (
                     <div className="grid grid-cols-5 gap-1.5">
                       {Array.from({ length: 10 }).map((_, i) => (
-                        <div key={i} className="h-10 rounded-lg bg-slate-50 animate-pulse" />
+                        <div key={i} className="h-11 rounded-lg bg-slate-50 animate-pulse" />
                       ))}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-5 gap-1.5">
+                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
                       {timeSlots.map(slot => (
                         <button key={slot.time} onClick={() => slot.available && setSelectedTime(slot.time)}
                           disabled={!slot.available}
-                          className={`py-2.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                          className={`py-3 px-2 rounded-lg text-sm font-bold transition-all ${
                             selectedTime === slot.time
                               ? "bg-teal-600 text-white shadow-md shadow-teal-600/20"
                               : slot.available

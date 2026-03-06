@@ -10,15 +10,25 @@ import {
   Calendar, MapPin, Home, Bed, Bath, Ruler, Repeat, Plus,
   CreditCard, User, Check, AlertCircle, Search,
   Loader2, PartyPopper, Mail, PawPrint, Key, Building,
-  UserPlus, Users, ChevronRight, X, Hash,
+  UserPlus, Users, ChevronRight, ChevronLeft, X, Hash,
+  Refrigerator, WashingMachine, CookingPot, Blinds, PaintBucket,
+  Package, Car, TreePalm, Flower2,
 } from "lucide-react";
 import {
   type PricingData, type TimeSlot, type ContactInfo, type ServiceArea,
-  FREQ_ORDER, FREQ_META, EXTRA_ICONS,
+  FREQ_ORDER, FREQ_META,
   fmt, round2, fmtBath, fmtSqft, formatPhone,
   calculatePrice, getAvailableDates, getFallbackTimeSlots,
   validateContact, buildBookingPayload,
 } from "@/lib/booking-utils";
+
+const EXTRA_ICON_MAP: Record<string, React.ElementType> = {
+  "Inside Oven": CookingPot, "Inside Fridge": Refrigerator, "Inside Cabinets": Package,
+  "Laundry (Wash & Fold)": WashingMachine, "Inside Windows": Blinds, "Baseboards": PaintBucket,
+  "Wall Cleaning": Home, "Garage Sweep": Car, "Patio/Balcony": TreePalm,
+  "Pet Hair Treatment": PawPrint, "Green Cleaning Upgrade": Flower2, "Organizing (per room)": Package,
+  "Dishes": CookingPot, "Blinds Cleaning": Blinds,
+};
 
 /* ═══════════════════════════════════════════════════════════════════
    ADMIN BOOKING FORM — Split-screen, BookingKoala-style
@@ -55,6 +65,10 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
   // ── Availability ──
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date(); return { year: now.getFullYear(), month: now.getMonth() };
+  });
 
   // ── Submission ──
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -122,16 +136,8 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
   // CASCADING FILTERS
   // ═══════════════════════════════════════════════════════════════════
 
-  const bedroomOptions = useMemo(() => {
-    const set = new Set(pricingMatrix.map(m => m.bedrooms));
-    return Array.from(set).sort((a, b) => a - b);
-  }, [pricingMatrix]);
-
-  const bathroomOptions = useMemo(() => {
-    if (bedrooms === null) return [];
-    const set = new Set(pricingMatrix.filter(m => m.bedrooms === bedrooms).map(m => m.bathrooms));
-    return Array.from(set).sort((a, b) => a - b);
-  }, [pricingMatrix, bedrooms]);
+  const bedroomOptions = useMemo(() => [1, 2, 3, 4, 5, 6], []);
+  const bathroomOptions = useMemo(() => [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6], []);
 
   const sqftOptions = useMemo(() => {
     if (bedrooms === null || bathrooms === null) return [];
@@ -140,12 +146,6 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
       .sort((a, b) => a.sqft_min - b.sqft_min)
       .map(m => ({ key: `${m.sqft_min}-${m.sqft_max}`, min: m.sqft_min, max: m.sqft_max, label: fmtSqft(m.sqft_min, m.sqft_max) }));
   }, [pricingMatrix, bedrooms, bathrooms]);
-
-  useEffect(() => {
-    if (bedrooms === null) return;
-    const validBaths = pricingMatrix.filter(m => m.bedrooms === bedrooms).map(m => m.bathrooms);
-    if (bathrooms !== null && !validBaths.includes(bathrooms)) { setBathrooms(null); setSqftKey(null); }
-  }, [bedrooms, pricingMatrix]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (bedrooms === null || bathrooms === null) { setSqftKey(null); return; }
@@ -197,6 +197,20 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
   }, [frequencyDiscounts]);
 
   const availableDates = useMemo(() => getAvailableDates(), []);
+
+  const availableDateSet = useMemo(() => {
+    const set = new Set<string>();
+    availableDates.forEach(d => set.add(d.toISOString().split("T")[0]));
+    return set;
+  }, [availableDates]);
+
+  const calendarDays = useMemo(() => {
+    const firstDay = new Date(calendarMonth.year, calendarMonth.month, 1).getDay();
+    const daysInMonth = new Date(calendarMonth.year, calendarMonth.month + 1, 0).getDate();
+    const days: (number | null)[] = Array.from({ length: firstDay }, () => null);
+    for (let d = 1; d <= daysInMonth; d++) days.push(d);
+    return days;
+  }, [calendarMonth]);
 
   // ═══════════════════════════════════════════════════════════════════
   // TIME SLOTS
@@ -335,8 +349,8 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
 
           {/* Customer Selection */}
           <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Users size={12} /> Customer
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Users size={14} /> Customer
             </h3>
 
             {/* Mode Toggle */}
@@ -378,7 +392,7 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold text-slate-900 truncate">{c.first_name} {c.last_name}</p>
-                          <p className="text-[11px] text-slate-400 truncate">{c.email} {c.phone ? `· ${c.phone}` : ""}</p>
+                          <p className="text-xs text-slate-400 truncate">{c.email} {c.phone ? `· ${c.phone}` : ""}</p>
                         </div>
                         <ChevronRight size={14} className="text-slate-300" />
                       </button>
@@ -407,7 +421,7 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
                   </div>
                   <div>
                     <p className="text-sm font-bold text-slate-900">{selectedCustomer.first_name} {selectedCustomer.last_name}</p>
-                    <p className="text-[11px] text-slate-500">{selectedCustomer.email}</p>
+                    <p className="text-xs text-slate-500">{selectedCustomer.email}</p>
                   </div>
                 </div>
                 <button onClick={clearCustomer} className="p-1.5 hover:bg-teal-100 rounded-lg transition-colors">
@@ -429,8 +443,8 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
 
           {/* Service Address */}
           <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <MapPin size={12} /> Service Address
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <MapPin size={14} /> Service Address
             </h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
@@ -438,7 +452,7 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
               </div>
               <AdminInput label="Apt / Suite" value={contact.addressLine2} onChange={v => updateContact("addressLine2", v)} />
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 mb-1">Zip Code *</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Zip Code *</label>
                 <input type="text" maxLength={5} value={zipCode} onChange={e => setZipCode(e.target.value.replace(/\D/g, ""))}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all"
                 />
@@ -454,12 +468,12 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
           {/* Home Details + Frequency (side by side) */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Home size={12} /> Home Details
+              <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Home size={14} /> Home Details
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-500 mb-1.5 flex items-center gap-1"><Bed size={10} /> Bedrooms</label>
+                  <label className="text-xs font-semibold text-slate-500 mb-1.5 flex items-center gap-1"><Bed size={12} /> Bedrooms</label>
                   <div className="flex flex-wrap gap-1">
                     {bedroomOptions.map(n => (
                       <button key={n} onClick={() => setBedrooms(n)}
@@ -470,7 +484,7 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
                   </div>
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-500 mb-1.5 flex items-center gap-1"><Bath size={10} /> Bathrooms</label>
+                  <label className="text-xs font-semibold text-slate-500 mb-1.5 flex items-center gap-1"><Bath size={12} /> Bathrooms</label>
                   <div className="flex flex-wrap gap-1">
                     {bathroomOptions.map(n => (
                       <button key={n} onClick={() => setBathrooms(n)}
@@ -481,7 +495,7 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
                   </div>
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-500 mb-1.5 flex items-center gap-1"><Ruler size={10} /> Sq Ft</label>
+                  <label className="text-xs font-semibold text-slate-500 mb-1.5 flex items-center gap-1"><Ruler size={12} /> Sq Ft</label>
                   <div className="flex flex-wrap gap-1">
                     {sqftOptions.map(opt => (
                       <button key={opt.key} onClick={() => setSqftKey(opt.key)}
@@ -495,8 +509,8 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Repeat size={12} /> Frequency
+              <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Repeat size={14} /> Frequency
               </h3>
               <div className="space-y-1.5">
                 {sortedFrequencies.map(fd => {
@@ -526,27 +540,27 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
 
           {/* Extras */}
           <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Plus size={12} /> Add-Ons {selectedExtras.length > 0 && <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded text-[10px]">{selectedExtras.length}</span>}
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Plus size={14} /> Add-Ons {selectedExtras.length > 0 && <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded text-xs">{selectedExtras.length}</span>}
             </h3>
             <div className="grid grid-cols-3 gap-2">
               {extras.map(extra => {
                 const isSel = selectedExtras.includes(extra.id);
-                const icon = EXTRA_ICONS[extra.name] || "✨";
+                const IconComp = EXTRA_ICON_MAP[extra.name] || Sparkles;
                 return (
                   <button key={extra.id} onClick={() => toggleExtra(extra.id)}
-                    className={`flex items-center gap-2 p-2.5 rounded-lg border text-left transition-all ${
+                    className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
                       isSel ? "border-teal-500 bg-teal-50/50" : "border-slate-100 hover:border-slate-200"
                     }`}>
-                    <span className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 text-xs ${
+                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       isSel ? "bg-teal-600 text-white" : "bg-slate-50"
                     }`}>
-                      {isSel ? <Check size={12} /> : <span className="text-sm">{icon}</span>}
+                      {isSel ? <Check size={14} className="text-white" /> : <IconComp size={14} className="text-teal-600" />}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[11px] font-bold text-slate-900 truncate">{extra.name}</div>
+                      <div className="text-xs font-bold text-slate-900 truncate">{extra.name}</div>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 flex-shrink-0">+{fmt(Number(extra.price))}</span>
+                    <span className="text-xs font-bold text-slate-400 flex-shrink-0">+{fmt(Number(extra.price))}</span>
                   </button>
                 );
               })}
@@ -555,42 +569,100 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
 
           {/* Schedule */}
           <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Calendar size={12} /> Schedule
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Calendar size={14} /> Schedule
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="text-[11px] font-semibold text-slate-500 mb-2 block">Date</label>
-                <div className="grid grid-cols-7 gap-1">
-                  {availableDates.map(d => {
-                    const ds = d.toISOString().split("T")[0];
-                    return (
-                      <button key={ds} onClick={() => setSelectedDate(ds)}
-                        className={`p-1.5 rounded-lg text-center transition-all ${
-                          selectedDate === ds ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100 border border-slate-100"
-                        }`}>
-                        <div className={`text-[8px] font-bold uppercase ${selectedDate === ds ? "text-white/70" : "text-slate-400"}`}>
-                          {d.toLocaleDateString("en-US", { weekday: "short" })}
-                        </div>
-                        <div className="text-sm font-bold">{d.getDate()}</div>
-                      </button>
-                    );
-                  })}
-                </div>
+                <label className="text-xs font-semibold text-slate-500 mb-2 block">Date</label>
+                <button
+                  onClick={() => setShowCalendar(true)}
+                  className={`w-full p-3 rounded-lg border text-left transition-all flex items-center gap-3 ${
+                    selectedDate ? "border-teal-500 bg-teal-50/30" : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <Calendar size={16} className={selectedDate ? "text-teal-600" : "text-slate-400"} />
+                  <div className="flex-1">
+                    {selectedDate ? (
+                      <span className="text-sm font-bold text-slate-900">
+                        {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric" })}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-slate-400">Choose a date...</span>
+                    )}
+                  </div>
+                  <ChevronRight size={14} className="text-slate-400" />
+                </button>
               </div>
+
+              {/* Calendar Modal */}
+              <AnimatePresence>
+                {showCalendar && (
+                  <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                    onClick={() => setShowCalendar(false)}
+                  >
+                    <motion.div
+                      initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                      onClick={e => e.stopPropagation()}
+                      className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                    >
+                      <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                        <button onClick={() => setCalendarMonth(prev => { const d = new Date(prev.year, prev.month - 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                          className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors">
+                          <ChevronLeft size={20} className="text-slate-600" />
+                        </button>
+                        <h3 className="text-lg font-bold text-slate-900">
+                          {new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                        </h3>
+                        <button onClick={() => setCalendarMonth(prev => { const d = new Date(prev.year, prev.month + 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                          className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors">
+                          <ChevronRight size={20} className="text-slate-600" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-7 px-5 pt-3">
+                        {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
+                          <div key={d} className="text-center text-xs font-bold text-slate-400 py-2">{d}</div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7 px-5 pb-5 gap-1">
+                        {calendarDays.map((day, i) => {
+                          if (day === null) return <div key={`e-${i}`} />;
+                          const dateStr = `${calendarMonth.year}-${String(calendarMonth.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                          const isAvail = availableDateSet.has(dateStr);
+                          const isSel = selectedDate === dateStr;
+                          return (
+                            <button key={dateStr} disabled={!isAvail}
+                              onClick={() => { setSelectedDate(dateStr); setShowCalendar(false); }}
+                              className={`w-full aspect-square rounded-xl flex items-center justify-center text-sm font-semibold transition-all ${
+                                isSel ? "bg-slate-900 text-white shadow-lg"
+                                  : isAvail ? "hover:bg-slate-100 text-slate-900 cursor-pointer" : "text-slate-200 cursor-not-allowed"
+                              }`}>{day}</button>
+                          );
+                        })}
+                      </div>
+                      <div className="px-5 pb-5">
+                        <button onClick={() => setShowCalendar(false)} className="w-full py-3 rounded-xl bg-slate-100 text-sm font-bold text-slate-600 hover:bg-slate-200 transition-colors">Close</button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {selectedDate && (
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-500 mb-2 block">
-                    Time {loadingSlots && <Loader2 size={10} className="inline-block ml-1 animate-spin text-teal-600" />}
+                  <label className="text-xs font-semibold text-slate-500 mb-2 block">
+                    Time {loadingSlots && <Loader2 size={12} className="inline-block ml-1 animate-spin text-teal-600" />}
                   </label>
-                  <div className="grid grid-cols-5 gap-1">
+                  <div className="grid grid-cols-5 gap-1.5">
                     {loadingSlots ? (
-                      Array.from({ length: 10 }).map((_, i) => <div key={i} className="h-8 rounded bg-slate-50 animate-pulse" />)
+                      Array.from({ length: 10 }).map((_, i) => <div key={i} className="h-10 rounded-lg bg-slate-50 animate-pulse" />)
                     ) : (
                       timeSlots.map(slot => (
                         <button key={slot.time} onClick={() => slot.available && setSelectedTime(slot.time)}
                           disabled={!slot.available}
-                          className={`py-2 px-1 rounded text-[11px] font-bold transition-all ${
+                          className={`py-2.5 px-1 rounded-lg text-xs font-bold transition-all ${
                             selectedTime === slot.time ? "bg-slate-900 text-white"
                               : slot.available ? "bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-100"
                               : "bg-slate-50 text-slate-300 cursor-not-allowed line-through"
@@ -605,8 +677,8 @@ export default function AdminBookingForm({ data }: { data: PricingData }) {
 
           {/* Notes */}
           <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Key size={12} /> Additional Details
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Key size={14} /> Additional Details
             </h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 bg-slate-50/50 col-span-2">
@@ -746,20 +818,20 @@ function AdminInput({ label, value, onChange, type = "text", error, placeholder 
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-semibold text-slate-500 mb-1">{label}</label>
+      <label className="block text-xs font-semibold text-slate-500 mb-1">{label}</label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className={`w-full px-3 py-2 rounded-lg border text-sm font-medium focus:outline-none transition-all ${
+        className={`w-full px-3 py-2.5 rounded-lg border text-sm font-medium focus:outline-none transition-all ${
           error ? "border-red-300 focus:ring-2 focus:ring-red-100" : "border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10"
         }`}
       />
-      {error && <p className="mt-0.5 text-[10px] text-red-500">{error}</p>}
+      {error && <p className="mt-0.5 text-xs text-red-500">{error}</p>}
     </div>
   );
 }
 
 function PriceRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="flex justify-between text-xs">
+    <div className="flex justify-between text-sm">
       <span className={accent ? "text-teal-600 font-medium" : "text-slate-500"}>{label}</span>
       <span className={accent ? "text-teal-600 font-bold" : "text-slate-700 font-semibold"}>{value}</span>
     </div>
@@ -769,10 +841,10 @@ function PriceRow({ label, value, accent }: { label: string; value: string; acce
 function SummaryItem({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <Icon size={12} className="text-slate-400 flex-shrink-0" />
+      <Icon size={14} className="text-slate-400 flex-shrink-0" />
       <div className="flex-1 min-w-0">
-        <span className="text-[10px] text-slate-400">{label}: </span>
-        <span className="text-xs font-semibold text-slate-700">{value}</span>
+        <span className="text-xs text-slate-400">{label}: </span>
+        <span className="text-sm font-semibold text-slate-700">{value}</span>
       </div>
     </div>
   );

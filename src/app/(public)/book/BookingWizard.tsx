@@ -14,6 +14,12 @@ import {
   Check, AlertCircle, ChevronDown, Info, Zap, Award,
   Heart, Lock, Leaf, Loader2, PartyPopper, Mail,
   PawPrint, Key, Building, Hash,
+  // Extra icons for add-ons
+  Flame, Refrigerator, DoorOpen, Shirt, AppWindow,
+  PaintBucket, Warehouse, Car, TreePine, Dog, Recycle,
+  Package, UtensilsCrossed, Blinds,
+  // Calendar
+  ChevronLeft, ChevronRight, X,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -89,6 +95,24 @@ const FREQ_META: Record<string, { label: string; desc: string; badge?: string }>
   one_time: { label: "One-Time", desc: "Perfect for a one-time deep clean or move-in/out" },
 };
 
+const EXTRA_ICON_MAP: Record<string, React.ElementType> = {
+  "Inside Oven": Flame,
+  "Inside Fridge": Refrigerator,
+  "Inside Cabinets": DoorOpen,
+  "Laundry (Wash & Fold)": Shirt,
+  "Inside Windows": AppWindow,
+  "Baseboards": PaintBucket,
+  "Wall Cleaning": PaintBucket,
+  "Garage Sweep": Car,
+  "Patio/Balcony": TreePine,
+  "Pet Hair Treatment": Dog,
+  "Green Cleaning Upgrade": Recycle,
+  "Organizing (per room)": Package,
+  "Dishes": UtensilsCrossed,
+  "Blinds Cleaning": Blinds,
+};
+
+// Keep emoji fallback for confirmation summary
 const EXTRA_ICONS: Record<string, string> = {
   "Inside Oven": "🍳", "Inside Fridge": "🧊", "Inside Cabinets": "🗄️",
   "Laundry (Wash & Fold)": "👕", "Inside Windows": "🪟", "Baseboards": "🧹",
@@ -171,6 +195,11 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
   // ── Availability ──
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
 
   // ── Submission ──
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -318,16 +347,9 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
   // DYNAMIC CASCADING FILTERS
   // ═══════════════════════════════════════════════════════════════════
 
-  const bedroomOptions = useMemo(() => {
-    const set = new Set(pricingMatrix.map(m => m.bedrooms));
-    return Array.from(set).sort((a, b) => a - b);
-  }, [pricingMatrix]);
-
-  const bathroomOptions = useMemo(() => {
-    if (bedrooms === null) return [];
-    const set = new Set(pricingMatrix.filter(m => m.bedrooms === bedrooms).map(m => m.bathrooms));
-    return Array.from(set).sort((a, b) => a - b);
-  }, [pricingMatrix, bedrooms]);
+  // Fixed 1-6 options for both bedrooms and bathrooms (independent)
+  const bedroomOptions = [1, 2, 3, 4, 5, 6];
+  const bathroomOptions = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6];
 
   const sqftOptions = useMemo(() => {
     if (bedrooms === null || bathrooms === null) return [];
@@ -337,16 +359,7 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
       .map(m => ({ key: `${m.sqft_min}-${m.sqft_max}`, min: m.sqft_min, max: m.sqft_max, label: fmtSqft(m.sqft_min, m.sqft_max) }));
   }, [pricingMatrix, bedrooms, bathrooms]);
 
-  // Auto-reset downstream
-  useEffect(() => {
-    if (bedrooms === null) return;
-    const validBaths = pricingMatrix.filter(m => m.bedrooms === bedrooms).map(m => m.bathrooms);
-    if (bathrooms !== null && !validBaths.includes(bathrooms)) {
-      setBathrooms(null);
-      setSqftKey(null);
-    }
-  }, [bedrooms, pricingMatrix]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  // Auto-reset sqft when bed/bath changes
   useEffect(() => {
     if (bedrooms === null || bathrooms === null) { setSqftKey(null); return; }
     const validSqft = pricingMatrix
@@ -356,21 +369,13 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
     if (validSqft.length === 1 && sqftKey === null) setSqftKey(validSqft[0]);
   }, [bedrooms, bathrooms, pricingMatrix]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-select defaults: 1bed / 1bath / 500-999sqft
+  // Auto-select defaults: 2bed / 2bath / first sqft
   useEffect(() => {
-    if (bedroomOptions.length > 0 && bedrooms === null) {
-      const defaultBed = bedroomOptions.includes(1) ? 1 : bedroomOptions[0];
-      setBedrooms(defaultBed);
-      const baths = pricingMatrix.filter(m => m.bedrooms === defaultBed).map(m => m.bathrooms);
-      const uniqueBaths = Array.from(new Set(baths)).sort((a, b) => a - b);
-      const defaultBath = uniqueBaths.includes(1) ? 1 : uniqueBaths[0];
-      setBathrooms(defaultBath);
-      const sqfts = pricingMatrix.filter(m => m.bedrooms === defaultBed && m.bathrooms === defaultBath);
-      const preferred = sqfts.find(m => m.sqft_min === 500 && m.sqft_max === 999);
-      if (preferred) setSqftKey(`${preferred.sqft_min}-${preferred.sqft_max}`);
-      else if (sqfts.length > 0) setSqftKey(`${sqfts[0].sqft_min}-${sqfts[0].sqft_max}`);
+    if (bedrooms === null) {
+      setBedrooms(2);
+      setBathrooms(2);
     }
-  }, [bedroomOptions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Parse sqftKey
   const sqftMin = sqftKey ? Number(sqftKey.split("-")[0]) : null;
@@ -423,16 +428,27 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
     });
   }, [frequencyDiscounts]);
 
-  // Available dates (next 14 non-Sunday days)
-  const availableDates = useMemo(() => {
-    const dates: Date[] = [];
-    for (let i = 1; i <= 21 && dates.length < 14; i++) {
+  // Available dates set (next 60 days, no Sundays)
+  const availableDateSet = useMemo(() => {
+    const set = new Set<string>();
+    for (let i = 1; i <= 60; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
-      if (d.getDay() !== 0) dates.push(d);
+      if (d.getDay() !== 0) set.add(d.toISOString().split("T")[0]);
     }
-    return dates;
+    return set;
   }, []);
+
+  // Calendar grid helper
+  const calendarDays = useMemo(() => {
+    const { year, month } = calendarMonth;
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const days: (number | null)[] = [];
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) days.push(i);
+    return days;
+  }, [calendarMonth]);
 
   // ═══════════════════════════════════════════════════════════════════
   // REAL-TIME AVAILABILITY
@@ -951,14 +967,11 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
                           <div>
                             <label className="flex items-center gap-2 text-sm font-bold text-[#0C1829] mb-3">
                               <Bath size={15} className="text-[#0D9488]" /> Bathrooms
-                              {bathroomOptions.length === 0 && bedrooms !== null && (
-                                <span className="text-xs font-normal text-gray-400 ml-1">Select bedrooms first</span>
-                              )}
                             </label>
                             <div className="flex flex-wrap gap-2">
                               {bathroomOptions.map(n => (
                                 <button key={n} onClick={() => setBathrooms(n)}
-                                  className={`min-w-[56px] py-3 px-4 rounded-xl text-sm font-bold transition-all duration-200 ${
+                                  className={`min-w-[52px] py-3 px-3 rounded-xl text-sm font-bold transition-all duration-200 ${
                                     bathrooms === n
                                       ? "bg-gradient-to-br from-[#0D9488] to-[#0B7C72] text-white shadow-lg shadow-[#0D9488]/25 scale-105"
                                       : "bg-gray-50 text-[#0C1829] hover:bg-gray-100 border border-gray-100"
@@ -966,9 +979,6 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
                                   {fmtBath(n)}
                                 </button>
                               ))}
-                              {bathroomOptions.length === 0 && (
-                                <div className="text-sm text-gray-400 italic py-3">Select bedrooms above to see bathroom options</div>
-                              )}
                             </div>
                           </div>
 
@@ -1019,46 +1029,51 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
                     {step === 3 && (
                       <div>
                         <StepHeader icon={Repeat} title="How often do you need cleaning?" subtitle="Recurring service saves you money — cancel anytime" step={3} />
-                        <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="space-y-3">
                           {sortedFrequencies.map(fd => {
                             const meta = FREQ_META[fd.frequency];
                             const isSelected = frequency === fd.frequency;
                             const discPct = Number(fd.discount_percentage);
                             return (
                               <button key={fd.id} onClick={() => setFrequency(fd.frequency)}
-                                className={`relative p-5 rounded-xl border-2 text-left transition-all duration-200 group ${
+                                className={`relative w-full p-5 rounded-xl border-2 text-left transition-all duration-200 group ${
                                   isSelected
                                     ? "border-[#0D9488] bg-gradient-to-br from-[#0D9488]/5 to-[#0D9488]/0 shadow-lg shadow-[#0D9488]/10"
                                     : "border-gray-100 hover:border-gray-200 hover:shadow-sm"
                                 }`}>
                                 {meta?.badge && (
-                                  <span className={`absolute -top-2.5 right-4 px-3 py-0.5 text-[10px] font-bold rounded-full shadow-sm ${
+                                  <span className={`absolute -top-2.5 right-4 px-3 py-0.5 text-xs font-bold rounded-full shadow-sm ${
                                     meta.badge === "MOST POPULAR" ? "bg-[#C9A84C] text-white" : "bg-[#0D9488] text-white"
                                   }`}>{meta.badge}</span>
                                 )}
-                                <div className={`absolute top-4 left-4 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                                  isSelected ? "border-[#0D9488] bg-[#0D9488]" : "border-gray-200"
-                                }`}>
-                                  {isSelected && <Check size={12} className="text-white" strokeWidth={3} />}
-                                </div>
-                                <div className="pl-8">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-base font-bold text-[#0C1829]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                                      {meta?.label || fd.frequency}
-                                    </span>
-                                    {discPct > 0 && (
-                                      <span className="px-2 py-0.5 bg-[#0D9488]/10 text-[#0D9488] text-[11px] font-bold rounded-md">
-                                        Save {discPct}%
-                                      </span>
-                                    )}
+                                <div className="flex items-center gap-4">
+                                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                                    isSelected ? "border-[#0D9488] bg-[#0D9488]" : "border-gray-200"
+                                  }`}>
+                                    {isSelected && <Check size={14} className="text-white" strokeWidth={3} />}
                                   </div>
-                                  <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{meta?.desc || ""}</p>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                      <span className="text-base font-bold text-[#0C1829]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                                        {meta?.label || fd.frequency}
+                                      </span>
+                                      {discPct > 0 && (
+                                        <span className="px-2.5 py-1 bg-[#0D9488]/10 text-[#0D9488] text-xs font-bold rounded-md">
+                                          Save {discPct}%
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-sm text-gray-500 mt-1 leading-relaxed">{meta?.desc || ""}</p>
+                                  </div>
                                   {price && (
-                                    <div className="mt-2 text-sm font-bold text-[#0D9488]">
-                                      {discPct > 0
-                                        ? `${fmt(round2(price.basePrice - price.basePrice * discPct / 100))}/visit`
-                                        : `${fmt(price.basePrice)}/visit`
-                                      }
+                                    <div className="text-right flex-shrink-0">
+                                      <div className="text-base font-bold text-[#0D9488]">
+                                        {discPct > 0
+                                          ? fmt(round2(price.basePrice - price.basePrice * discPct / 100))
+                                          : fmt(price.basePrice)
+                                        }
+                                      </div>
+                                      <div className="text-xs text-gray-400">per visit</div>
                                     </div>
                                   )}
                                 </div>
@@ -1076,7 +1091,7 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
                         <div className="grid sm:grid-cols-2 gap-3">
                           {extras.map(extra => {
                             const isSel = selectedExtras.includes(extra.id);
-                            const icon = EXTRA_ICONS[extra.name] || "✨";
+                            const IconComp = EXTRA_ICON_MAP[extra.name] || Sparkles;
                             return (
                               <motion.button
                                 key={extra.id}
@@ -1088,16 +1103,21 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
                                     : "border-gray-100 hover:border-gray-200 hover:shadow-sm"
                                 }`}
                               >
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg transition-all ${
+                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
                                   isSel ? "bg-[#0D9488] shadow-lg shadow-[#0D9488]/25" : "bg-gray-50"
                                 }`}>
-                                  {isSel ? <Check size={18} className="text-white" /> : <span>{icon}</span>}
+                                  {isSel
+                                    ? <Check size={18} className="text-white" />
+                                    : <IconComp size={20} className="text-[#0D9488]" />
+                                  }
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-sm font-bold text-[#0C1829]">{extra.name}</div>
-                                  <div className="text-[11px] text-gray-400 truncate mt-0.5">{extra.description}</div>
+                                  <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{extra.description}</div>
                                 </div>
-                                <span className={`text-sm font-bold flex-shrink-0 ${isSel ? "text-[#0D9488]" : "text-gray-400"}`}>
+                                <span className={`text-sm font-bold flex-shrink-0 ${
+                                  isSel ? "text-[#0D9488]" : "text-gray-400"
+                                }`}>
                                   +{fmt(Number(extra.price))}
                                 </span>
                               </motion.button>
@@ -1119,36 +1139,131 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
                       </div>
                     )}
 
-                    {/* ── STEP 5: Date & Time with Real-Time Availability ── */}
+                    {/* ── STEP 5: Date & Time with Full Calendar Modal ── */}
                     {step === 5 && (
                       <div>
                         <StepHeader icon={Calendar} title="Pick your preferred date & time" subtitle="Choose when you'd like us to arrive — availability updates in real time" step={5} />
                         <div className="space-y-6">
+                          {/* Date Picker Button */}
                           <div>
                             <label className="block text-sm font-bold text-[#0C1829] mb-3">Select Date</label>
-                            <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-                              {availableDates.map(d => {
-                                const ds = d.toISOString().split("T")[0];
-                                return (
-                                  <button key={ds} onClick={() => setSelectedDate(ds)}
-                                    className={`p-2.5 rounded-xl text-center transition-all duration-200 ${
-                                      selectedDate === ds
-                                        ? "bg-gradient-to-br from-[#0D9488] to-[#0B7C72] text-white shadow-lg shadow-[#0D9488]/25 scale-105"
-                                        : "bg-gray-50 hover:bg-gray-100 border border-gray-100"
-                                    }`}>
-                                    <div className={`text-[10px] font-bold uppercase ${selectedDate === ds ? "text-white/70" : "text-gray-400"}`}>
-                                      {d.toLocaleDateString("en-US", { weekday: "short" })}
-                                    </div>
-                                    <div className="text-lg font-bold mt-0.5">{d.getDate()}</div>
-                                    <div className={`text-[10px] ${selectedDate === ds ? "text-white/70" : "text-gray-400"}`}>
-                                      {d.toLocaleDateString("en-US", { month: "short" })}
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
+                            <button
+                              onClick={() => setShowCalendar(true)}
+                              className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-200 flex items-center gap-3 ${
+                                selectedDate
+                                  ? "border-[#0D9488] bg-[#0D9488]/5"
+                                  : "border-gray-200 hover:border-gray-300 bg-white"
+                              }`}
+                            >
+                              <Calendar size={20} className={selectedDate ? "text-[#0D9488]" : "text-gray-400"} />
+                              <div className="flex-1">
+                                {selectedDate ? (
+                                  <span className="text-base font-bold text-[#0C1829]">
+                                    {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                                  </span>
+                                ) : (
+                                  <span className="text-base text-gray-400">Choose a date...</span>
+                                )}
+                              </div>
+                              <ChevronRight size={18} className="text-gray-400" />
+                            </button>
                           </div>
 
+                          {/* Calendar Modal */}
+                          <AnimatePresence>
+                            {showCalendar && (
+                              <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                                onClick={() => setShowCalendar(false)}
+                              >
+                                <motion.div
+                                  initial={{ scale: 0.95, opacity: 0 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  exit={{ scale: 0.95, opacity: 0 }}
+                                  onClick={e => e.stopPropagation()}
+                                  className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                                >
+                                  {/* Calendar Header */}
+                                  <div className="flex items-center justify-between p-5 border-b border-gray-100">
+                                    <button
+                                      onClick={() => setCalendarMonth(prev => {
+                                        const d = new Date(prev.year, prev.month - 1, 1);
+                                        return { year: d.getFullYear(), month: d.getMonth() };
+                                      })}
+                                      className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 transition-colors"
+                                    >
+                                      <ChevronLeft size={20} className="text-gray-600" />
+                                    </button>
+                                    <h3 className="text-lg font-bold text-[#0C1829]">
+                                      {new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                                    </h3>
+                                    <button
+                                      onClick={() => setCalendarMonth(prev => {
+                                        const d = new Date(prev.year, prev.month + 1, 1);
+                                        return { year: d.getFullYear(), month: d.getMonth() };
+                                      })}
+                                      className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 transition-colors"
+                                    >
+                                      <ChevronRight size={20} className="text-gray-600" />
+                                    </button>
+                                  </div>
+
+                                  {/* Day headers */}
+                                  <div className="grid grid-cols-7 px-5 pt-3">
+                                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+                                      <div key={d} className="text-center text-xs font-bold text-gray-400 py-2">{d}</div>
+                                    ))}
+                                  </div>
+
+                                  {/* Calendar Grid */}
+                                  <div className="grid grid-cols-7 px-5 pb-5 gap-1">
+                                    {calendarDays.map((day, i) => {
+                                      if (day === null) return <div key={`empty-${i}`} />;
+                                      const dateStr = `${calendarMonth.year}-${String(calendarMonth.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                                      const isAvailable = availableDateSet.has(dateStr);
+                                      const isSelected = selectedDate === dateStr;
+                                      const today = new Date();
+                                      const isToday = today.getFullYear() === calendarMonth.year && today.getMonth() === calendarMonth.month && today.getDate() === day;
+                                      return (
+                                        <button
+                                          key={dateStr}
+                                          disabled={!isAvailable}
+                                          onClick={() => {
+                                            setSelectedDate(dateStr);
+                                            setShowCalendar(false);
+                                          }}
+                                          className={`w-full aspect-square rounded-xl flex items-center justify-center text-sm font-semibold transition-all ${
+                                            isSelected
+                                              ? "bg-gradient-to-br from-[#0D9488] to-[#0B7C72] text-white shadow-lg shadow-[#0D9488]/25"
+                                              : isAvailable
+                                                ? "hover:bg-[#0D9488]/10 text-[#0C1829] cursor-pointer"
+                                                : "text-gray-200 cursor-not-allowed"
+                                          } ${isToday && !isSelected ? "ring-2 ring-[#0D9488]/30" : ""}`}
+                                        >
+                                          {day}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Close button */}
+                                  <div className="px-5 pb-5">
+                                    <button
+                                      onClick={() => setShowCalendar(false)}
+                                      className="w-full py-3 rounded-xl bg-gray-100 text-sm font-bold text-gray-600 hover:bg-gray-200 transition-colors"
+                                    >
+                                      Close
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                          {/* Time Slots */}
                           <AnimatePresence>
                             {selectedDate && (
                               <motion.div
@@ -1164,7 +1279,7 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
                                 {loadingSlots ? (
                                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                                     {Array.from({ length: 10 }).map((_, i) => (
-                                      <div key={i} className="h-12 rounded-xl bg-gray-50 animate-pulse" />
+                                      <div key={i} className="h-14 rounded-xl bg-gray-50 animate-pulse" />
                                     ))}
                                   </div>
                                 ) : (
@@ -1174,7 +1289,7 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
                                         key={slot.time}
                                         onClick={() => slot.available && setSelectedTime(slot.time)}
                                         disabled={!slot.available}
-                                        className={`py-3 px-3 rounded-xl text-xs font-bold transition-all duration-200 relative ${
+                                        className={`py-3.5 px-3 rounded-xl text-sm font-bold transition-all duration-200 relative ${
                                           selectedTime === slot.time
                                             ? "bg-gradient-to-br from-[#0D9488] to-[#0B7C72] text-white shadow-lg shadow-[#0D9488]/25"
                                             : slot.available
@@ -1184,12 +1299,12 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
                                       >
                                         {slot.label}
                                         {slot.available && slot.remaining <= 2 && selectedTime !== slot.time && (
-                                          <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-400 text-white text-[8px] font-black rounded-full flex items-center justify-center">
+                                          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-400 text-white text-[10px] font-black rounded-full flex items-center justify-center">
                                             {slot.remaining}
                                           </span>
                                         )}
                                         {!slot.available && (
-                                          <span className="block text-[9px] font-normal mt-0.5">Full</span>
+                                          <span className="block text-xs font-normal mt-0.5">Full</span>
                                         )}
                                       </button>
                                     ))}
@@ -1197,8 +1312,8 @@ export default function BookingWizard({ data, embedded = false }: { data: Pricin
                                 )}
 
                                 {!loadingSlots && timeSlots.some(s => s.remaining <= 2 && s.available) && (
-                                  <div className="mt-3 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-100">
-                                    <AlertCircle size={13} />
+                                  <div className="mt-3 flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-3 rounded-xl border border-amber-100">
+                                    <AlertCircle size={15} />
                                     <span>Slots with low availability are marked with remaining count</span>
                                   </div>
                                 )}
@@ -1621,7 +1736,7 @@ function StepHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; 
       </div>
       <div>
         <h2 className="text-xl font-bold text-[#0C1829] leading-tight" style={{ fontFamily: "'DM Sans', sans-serif" }}>{title}</h2>
-        <p className="text-xs text-gray-400 mt-1">{subtitle}</p>
+        <p className="text-sm text-gray-400 mt-1">{subtitle}</p>
       </div>
     </div>
   );
@@ -1642,7 +1757,7 @@ function FormInput({ label, value, onChange, placeholder, type = "text", require
             : "border-gray-100 focus:border-[#0D9488] focus:ring-4 focus:ring-[#0D9488]/10"
         }`}
         placeholder={placeholder} />
-      {error && <p className="mt-1.5 text-xs text-red-500 font-medium">{error}</p>}
+      {error && <p className="mt-1.5 text-sm text-red-500 font-medium">{error}</p>}
     </div>
   );
 }
@@ -1654,7 +1769,7 @@ function SummaryCard({ icon: Icon, label, value }: { icon: React.ElementType; la
         <Icon size={14} className="text-[#0D9488]" />
       </div>
       <div className="min-w-0">
-        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</div>
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</div>
         <div className="text-sm font-bold text-[#0C1829] truncate">{value}</div>
       </div>
     </div>
