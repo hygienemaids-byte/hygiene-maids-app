@@ -34,14 +34,16 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Allow auth routes and public routes without redirect
+  // Public routes — no auth required
   const publicPaths = ["/auth", "/book", "/api"];
-  const isPublicRoute = publicPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
+  const isPublicRoute =
+    request.nextUrl.pathname === "/" ||
+    publicPaths.some((path) => request.nextUrl.pathname.startsWith(path)) ||
+    ["/about", "/blog", "/careers", "/checklist", "/contact", "/faq", "/locations", "/privacy-policy", "/quote", "/services", "/terms-of-service"].some(
+      (path) => request.nextUrl.pathname.startsWith(path)
+    );
 
-  if (isPublicRoute || request.nextUrl.pathname === "/") {
-    // If user is logged in and visits login page, redirect to admin
+  if (isPublicRoute) {
     if (user && request.nextUrl.pathname === "/auth/login") {
       const url = request.nextUrl.clone();
       url.pathname = "/admin";
@@ -50,8 +52,8 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Protected routes - redirect to login if not authenticated
-  const protectedPaths = ["/admin", "/provider"];
+  // Protected routes — redirect to login if not authenticated
+  const protectedPaths = ["/admin", "/provider", "/customer", "/cleaner"];
   const isProtectedRoute = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
