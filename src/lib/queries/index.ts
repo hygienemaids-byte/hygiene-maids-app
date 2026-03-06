@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "@/lib/supabase/client";
 
 const supabase = createClient();
@@ -27,13 +28,15 @@ export async function getDashboardStats() {
         .eq("status", "active"),
     ]);
 
-  const revenue = (monthlyRevenue.data || []).reduce(
-    (sum, p) => sum + Number(p.amount),
+  const revenueData = (monthlyRevenue.data || []) as any[];
+  const revenue = revenueData.reduce(
+    (sum: number, p: any) => sum + Number(p.amount),
     0
   );
+  const ratingData = (avgRating.data || []) as any[];
   const rating =
-    (avgRating.data || []).reduce((sum, p) => sum + Number(p.avg_rating), 0) /
-      (avgRating.data?.length || 1) || 0;
+    ratingData.reduce((sum: number, p: any) => sum + Number(p.avg_rating), 0) /
+      (ratingData.length || 1) || 0;
 
   return {
     todayBookings: bookingsToday.count || 0,
@@ -52,7 +55,7 @@ export async function getTodayBookings() {
     )
     .eq("scheduled_date", today)
     .order("scheduled_time", { ascending: true });
-  return data || [];
+  return (data || []) as any[];
 }
 
 export async function getUpcomingBookings() {
@@ -66,7 +69,7 @@ export async function getUpcomingBookings() {
     .order("scheduled_date", { ascending: true })
     .order("scheduled_time", { ascending: true })
     .limit(50);
-  return data || [];
+  return (data || []) as any[];
 }
 
 // ─── Bookings ──────────────────────────────────────────────────
@@ -89,7 +92,7 @@ export async function getBookings(filters?: {
 
   const { data, error } = await query;
   if (error) console.error("getBookings error:", error);
-  return data || [];
+  return (data || []) as any[];
 }
 
 export async function getBookingById(id: string) {
@@ -100,12 +103,11 @@ export async function getBookingById(id: string) {
     )
     .eq("id", id)
     .single();
-  return data;
+  return data as any;
 }
 
 export async function updateBooking(id: string, updates: Record<string, unknown>) {
-  const { data, error } = await supabase
-    .from("bookings")
+  const { data, error } = await (supabase.from("bookings") as any)
     .update(updates)
     .eq("id", id)
     .select()
@@ -116,7 +118,7 @@ export async function updateBooking(id: string, updates: Record<string, unknown>
 
 // ─── Customers ─────────────────────────────────────────────────
 export async function getCustomers(search?: string) {
-  let query = supabase
+  const query = supabase
     .from("customers")
     .select("*")
     .order("created_at", { ascending: false })
@@ -125,16 +127,17 @@ export async function getCustomers(search?: string) {
   const { data, error } = await query;
   if (error) console.error("getCustomers error:", error);
 
-  if (search && data) {
+  const results = (data || []) as any[];
+  if (search) {
     const s = search.toLowerCase();
-    return data.filter(
-      (c) =>
+    return results.filter(
+      (c: any) =>
         `${c.first_name} ${c.last_name} ${c.email} ${c.city}`
           .toLowerCase()
           .includes(s)
     );
   }
-  return data || [];
+  return results;
 }
 
 // ─── Providers ─────────────────────────────────────────────────
@@ -144,7 +147,7 @@ export async function getProviders() {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) console.error("getProviders error:", error);
-  return data || [];
+  return (data || []) as any[];
 }
 
 // ─── Leads ─────────────────────────────────────────────────────
@@ -165,21 +168,21 @@ export async function getLeads(filters?: {
   const { data, error } = await query;
   if (error) console.error("getLeads error:", error);
 
-  if (filters?.search && data) {
+  const results = (data || []) as any[];
+  if (filters?.search) {
     const s = filters.search.toLowerCase();
-    return data.filter(
-      (l) =>
+    return results.filter(
+      (l: any) =>
         `${l.first_name} ${l.last_name} ${l.email || ""} ${l.phone || ""}`
           .toLowerCase()
           .includes(s)
     );
   }
-  return data || [];
+  return results;
 }
 
 export async function updateLead(id: string, updates: Record<string, unknown>) {
-  const { data, error } = await supabase
-    .from("leads")
+  const { data, error } = await (supabase.from("leads") as any)
     .update(updates)
     .eq("id", id)
     .select()
@@ -197,16 +200,17 @@ export async function getApplicants(search?: string) {
     .limit(100);
   if (error) console.error("getApplicants error:", error);
 
-  if (search && data) {
+  const results = (data || []) as any[];
+  if (search) {
     const s = search.toLowerCase();
-    return data.filter(
-      (a) =>
+    return results.filter(
+      (a: any) =>
         `${a.first_name} ${a.last_name} ${a.email} ${a.city}`
           .toLowerCase()
           .includes(s)
     );
   }
-  return data || [];
+  return results;
 }
 
 // ─── Payments ──────────────────────────────────────────────────
@@ -219,7 +223,7 @@ export async function getPayments() {
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) console.error("getPayments error:", error);
-  return data || [];
+  return (data || []) as any[];
 }
 
 export async function getProviderPayouts() {
@@ -231,7 +235,7 @@ export async function getProviderPayouts() {
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) console.error("getProviderPayouts error:", error);
-  return data || [];
+  return (data || []) as any[];
 }
 
 // ─── Pricing ───────────────────────────────────────────────────
@@ -242,7 +246,7 @@ export async function getPricingMatrix() {
     .order("bedrooms")
     .order("bathrooms")
     .order("sqft_range");
-  return data || [];
+  return (data || []) as any[];
 }
 
 export async function getFrequencyDiscounts() {
@@ -250,7 +254,7 @@ export async function getFrequencyDiscounts() {
     .from("frequency_discounts")
     .select("*")
     .order("discount_percentage");
-  return data || [];
+  return (data || []) as any[];
 }
 
 export async function getExtras() {
@@ -260,7 +264,7 @@ export async function getExtras() {
     .eq("is_active", true)
     .order("category")
     .order("name");
-  return data || [];
+  return (data || []) as any[];
 }
 
 export async function getServiceAreas() {
@@ -270,13 +274,13 @@ export async function getServiceAreas() {
     .eq("is_active", true)
     .order("city")
     .order("zip_code");
-  return data || [];
+  return (data || []) as any[];
 }
 
 export async function getSystemSettings() {
   const { data } = await supabase.from("system_settings").select("*");
   const settings: Record<string, string> = {};
-  (data || []).forEach((s) => {
+  ((data || []) as any[]).forEach((s: any) => {
     settings[s.key] = s.value;
   });
   return settings;
@@ -300,7 +304,7 @@ export async function calculatePrice(params: {
 
   // Find base price
   const priceRow = matrixData.find(
-    (p) =>
+    (p: any) =>
       p.bedrooms === params.bedrooms &&
       p.bathrooms === params.bathrooms &&
       p.sqft_range === params.sqft_range
@@ -309,17 +313,17 @@ export async function calculatePrice(params: {
   const estimatedHours = priceRow?.estimated_hours || 0;
 
   // Calculate extras
-  const selectedExtras = extrasData.filter((e) =>
+  const selectedExtras = extrasData.filter((e: any) =>
     params.extras.includes(e.id)
   );
   const extrasTotal = selectedExtras.reduce(
-    (sum, e) => sum + Number(e.price),
+    (sum: number, e: any) => sum + Number(e.price),
     0
   );
 
   // Find discount
   const discount = discountData.find(
-    (d) => d.frequency === params.frequency
+    (d: any) => d.frequency === params.frequency
   );
   const discountPct = discount?.discount_percentage || 0;
   const discountAmount = (basePrice * discountPct) / 100;
