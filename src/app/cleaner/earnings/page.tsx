@@ -1,8 +1,7 @@
 // @ts-nocheck
 "use client";
-import { DollarSign, TrendingUp, Calendar, CheckCircle2 } from "lucide-react";
+import { DollarSign, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@/hooks/use-query";
 import { createClient } from "@/lib/supabase/client";
 
@@ -13,7 +12,7 @@ async function getEarningsData() {
 
   const { data: provider } = await supabase
     .from("providers")
-    .select("id")
+    .select("id, payout_percentage")
     .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
     .single();
 
@@ -25,7 +24,6 @@ async function getEarningsData() {
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split("T")[0];
   const thisYearStart = new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0];
 
-  // This month
   const { data: thisMonth } = await supabase
     .from("bookings")
     .select("total, scheduled_date, booking_number, bedrooms, bathrooms, customers(first_name, last_name)")
@@ -34,7 +32,6 @@ async function getEarningsData() {
     .gte("scheduled_date", thisMonthStart)
     .order("scheduled_date", { ascending: false });
 
-  // Last month
   const { data: lastMonth } = await supabase
     .from("bookings")
     .select("total")
@@ -43,7 +40,6 @@ async function getEarningsData() {
     .gte("scheduled_date", lastMonthStart)
     .lte("scheduled_date", lastMonthEnd);
 
-  // Year total
   const { data: yearJobs } = await supabase
     .from("bookings")
     .select("total")
@@ -54,16 +50,19 @@ async function getEarningsData() {
   const thisMonthTotal = (thisMonth || []).reduce((s, j) => s + (j.total || 0), 0);
   const lastMonthTotal = (lastMonth || []).reduce((s, j) => s + (j.total || 0), 0);
   const yearTotal = (yearJobs || []).reduce((s, j) => s + (j.total || 0), 0);
+  const payoutRate = provider.payout_percentage || 70;
 
   return {
     thisMonth: thisMonth || [],
+    payoutRate,
     stats: {
       thisMonthTotal,
+      thisMonthPayout: thisMonthTotal * (payoutRate / 100),
       lastMonthTotal,
       yearTotal,
+      yearPayout: yearTotal * (payoutRate / 100),
       thisMonthJobs: (thisMonth || []).length,
       yearJobs: (yearJobs || []).length,
-      avgPerJob: (thisMonth || []).length > 0 ? thisMonthTotal / (thisMonth || []).length : 0,
     },
   };
 }
@@ -75,8 +74,8 @@ export default function CleanerEarnings() {
     return (
       <div className="p-6 space-y-4">
         <div className="h-8 w-48 bg-slate-200 rounded animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
             <div key={i} className="h-28 bg-white rounded-xl border animate-pulse" />
           ))}
         </div>
@@ -97,7 +96,7 @@ export default function CleanerEarnings() {
     );
   }
 
-  const { thisMonth, stats } = data;
+  const { thisMonth, stats, payoutRate } = data;
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const currentMonth = monthNames[new Date().getMonth()];
 
@@ -105,25 +104,24 @@ export default function CleanerEarnings() {
     <div className="p-6 space-y-6 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Earnings</h1>
-        <p className="text-slate-500 mt-1">Track your cleaning service earnings.</p>
+        <p className="text-slate-500 mt-1">Track your cleaning service earnings. Your payout rate is <span className="font-medium text-slate-700">{payoutRate}%</span>.</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-slate-200 bg-white">
           <CardContent className="pt-5 pb-4">
             <p className="text-sm text-slate-500">{currentMonth} Earnings</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">${stats.thisMonthTotal.toFixed(2)}</p>
-            <p className="text-xs text-slate-400 mt-1">{stats.thisMonthJobs} jobs completed</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">${stats.thisMonthPayout.toFixed(2)}</p>
+            <p className="text-xs text-slate-400 mt-1">{stats.thisMonthJobs} jobs &middot; ${stats.thisMonthTotal.toFixed(2)} total billed</p>
           </CardContent>
         </Card>
         <Card className="border-slate-200 bg-white">
           <CardContent className="pt-5 pb-4">
             <p className="text-sm text-slate-500">Last Month</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">${stats.lastMonthTotal.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">${(stats.lastMonthTotal * (payoutRate / 100)).toFixed(2)}</p>
             {stats.lastMonthTotal > 0 && stats.thisMonthTotal > 0 && (
               <p className={`text-xs mt-1 ${stats.thisMonthTotal >= stats.lastMonthTotal ? "text-emerald-600" : "text-red-500"}`}>
-                {stats.thisMonthTotal >= stats.lastMonthTotal ? "↑" : "↓"}{" "}
+                {stats.thisMonthTotal >= stats.lastMonthTotal ? "\u2191" : "\u2193"}{" "}
                 {Math.abs(((stats.thisMonthTotal - stats.lastMonthTotal) / stats.lastMonthTotal) * 100).toFixed(0)}% vs last month
               </p>
             )}
@@ -132,20 +130,12 @@ export default function CleanerEarnings() {
         <Card className="border-slate-200 bg-white">
           <CardContent className="pt-5 pb-4">
             <p className="text-sm text-slate-500">Year to Date</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">${stats.yearTotal.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">${stats.yearPayout.toFixed(2)}</p>
             <p className="text-xs text-slate-400 mt-1">{stats.yearJobs} jobs total</p>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 bg-white">
-          <CardContent className="pt-5 pb-4">
-            <p className="text-sm text-slate-500">Avg per Job</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">${stats.avgPerJob.toFixed(2)}</p>
-            <p className="text-xs text-slate-400 mt-1">this month</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* This Month's Completed Jobs */}
       <Card className="border-slate-200 bg-white">
         <CardHeader>
           <CardTitle className="text-base">{currentMonth} Completed Jobs</CardTitle>
@@ -157,9 +147,10 @@ export default function CleanerEarnings() {
               <p className="text-slate-500">No completed jobs this month yet.</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-0">
               {thisMonth.map((job: Record<string, unknown>) => {
                 const customer = job.customers as Record<string, unknown> | null;
+                const payout = ((job.total as number) || 0) * (payoutRate / 100);
                 return (
                   <div key={job.booking_number as number} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
                     <div className="flex items-center gap-3">
@@ -179,7 +170,10 @@ export default function CleanerEarnings() {
                         </p>
                       </div>
                     </div>
-                    <span className="text-sm font-semibold text-emerald-700">${(job.total as number)?.toFixed(2)}</span>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold text-emerald-700">${payout.toFixed(2)}</span>
+                      <p className="text-[10px] text-slate-400">${(job.total as number)?.toFixed(2)} billed</p>
+                    </div>
                   </div>
                 );
               })}

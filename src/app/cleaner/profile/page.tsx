@@ -1,12 +1,11 @@
 // @ts-nocheck
 "use client";
 import { useState, useEffect } from "react";
-import { User, Mail, Phone, MapPin, Save, Shield, Key, Star, Calendar } from "lucide-react";
+import { User, Mail, Phone, Save, Shield, Key, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -21,7 +20,6 @@ export default function CleanerProfile() {
     lastName: "",
     email: "",
     phone: "",
-    bio: "",
   });
   const [passwordForm, setPasswordForm] = useState({
     newPassword: "",
@@ -47,7 +45,6 @@ export default function CleanerProfile() {
           lastName: prov.last_name || "",
           email: prov.email || user.email || "",
           phone: prov.phone || "",
-          bio: prov.bio || "",
         });
       } else {
         setForm((prev) => ({ ...prev, email: user.email || "" }));
@@ -68,7 +65,6 @@ export default function CleanerProfile() {
           first_name: form.firstName,
           last_name: form.lastName,
           phone: form.phone,
-          bio: form.bio,
           updated_at: new Date().toISOString(),
         })
         .eq("id", provider.id);
@@ -118,30 +114,30 @@ export default function CleanerProfile() {
     <div className="p-6 space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">My Profile</h1>
-        <p className="text-slate-500 mt-1">Manage your cleaner profile and account settings.</p>
+        <p className="text-slate-500 mt-1">Manage your account settings.</p>
       </div>
 
-      {/* Provider Status */}
+      {/* Provider Status Card */}
       {provider && (
         <Card className="border-slate-200 bg-white">
           <CardContent className="py-5">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-slate-800 text-white flex items-center justify-center text-lg font-bold">
+              <div className="w-14 h-14 rounded-full bg-slate-800 text-white flex items-center justify-center text-lg font-bold shrink-0">
                 {form.firstName.charAt(0)}{form.lastName.charAt(0)}
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-slate-900">{form.firstName} {form.lastName}</h3>
-                <div className="flex items-center gap-3 mt-1">
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
                   <Badge variant="outline" className={
                     provider.status === "active" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
                     "bg-amber-50 text-amber-700 border-amber-200"
                   }>
                     {provider.status as string}
                   </Badge>
-                  {provider.rating && (
+                  {(provider.avg_rating || provider.rating) && (
                     <span className="flex items-center gap-1 text-sm text-amber-600">
                       <Star className="w-3.5 h-3.5 fill-amber-400" />
-                      {(provider.rating as number).toFixed(1)}
+                      {((provider.avg_rating || provider.rating) as number).toFixed(1)}
                     </span>
                   )}
                   <span className="text-xs text-slate-400">
@@ -184,16 +180,6 @@ export default function CleanerProfile() {
               <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(469) 555-0123" className="mt-1.5" />
             </div>
           </div>
-          <div>
-            <Label className="text-slate-700">Bio / About Me</Label>
-            <Textarea
-              value={form.bio}
-              onChange={(e) => setForm({ ...form, bio: e.target.value })}
-              placeholder="Tell customers about yourself and your cleaning experience..."
-              className="mt-1.5"
-              rows={4}
-            />
-          </div>
           <Button onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
             <Save className="w-4 h-4 mr-2" />
             {saving ? "Saving..." : "Save Changes"}
@@ -206,7 +192,7 @@ export default function CleanerProfile() {
         <CardHeader className="pb-4">
           <CardTitle className="text-base flex items-center gap-2">
             <Shield className="w-4 h-4 text-teal-600" />
-            Security
+            Change Password
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -220,9 +206,12 @@ export default function CleanerProfile() {
               <Input type="password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} placeholder="Repeat password" className="mt-1.5" />
             </div>
           </div>
-          <Button variant="outline" onClick={handleChangePassword} disabled={changingPassword || !passwordForm.newPassword}>
+          {passwordForm.newPassword && passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword && (
+            <p className="text-xs text-red-500">Passwords do not match</p>
+          )}
+          <Button variant="outline" onClick={handleChangePassword} disabled={changingPassword || !passwordForm.newPassword || passwordForm.newPassword !== passwordForm.confirmPassword}>
             <Key className="w-4 h-4 mr-2" />
-            {changingPassword ? "Updating..." : "Change Password"}
+            {changingPassword ? "Updating..." : "Update Password"}
           </Button>
         </CardContent>
       </Card>

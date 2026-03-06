@@ -1,9 +1,8 @@
 // @ts-nocheck
 "use client";
 import { useState, useMemo } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, MapPin, User } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@/hooks/use-query";
 import { createClient } from "@/lib/supabase/client";
@@ -18,7 +17,7 @@ const statusColors: Record<string, string> = {
 function getWeekDates(offset: number) {
   const now = new Date();
   const start = new Date(now);
-  start.setDate(now.getDate() - now.getDay() + offset * 7); // Sunday
+  start.setDate(now.getDate() - now.getDay() + offset * 7);
   const days = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(start);
@@ -26,6 +25,11 @@ function getWeekDates(offset: number) {
     days.push(d);
   }
   return days;
+}
+
+function mapsUrl(job: Record<string, unknown>) {
+  const parts = [job.address_line1, job.city, job.state, job.zip_code].filter(Boolean).join(", ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts)}`;
 }
 
 async function getScheduleData(weekStart: string, weekEnd: string) {
@@ -93,7 +97,7 @@ export default function CleanerSchedule() {
         </div>
       </div>
 
-      <div className="text-center text-sm font-medium text-slate-600 mb-2">
+      <div className="text-center text-sm font-medium text-slate-600">
         {weekDates[0].toLocaleDateString("en-US", { month: "long", day: "numeric" })} &mdash;{" "}
         {weekDates[6].toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
       </div>
@@ -138,9 +142,12 @@ export default function CleanerSchedule() {
                     dayJobs.map((job) => {
                       const customer = job.customers as Record<string, unknown> | null;
                       return (
-                        <div
+                        <a
                           key={job.id as string}
-                          className={`rounded-lg px-2 py-1.5 text-[11px] border ${statusColors[job.status as string] || "bg-slate-50 border-slate-200"}`}
+                          href={mapsUrl(job)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`block rounded-lg px-2 py-1.5 text-[11px] border hover:opacity-80 transition-opacity ${statusColors[job.status as string] || "bg-slate-50 border-slate-200"}`}
                         >
                           <p className="font-semibold truncate">
                             {job.scheduled_time
@@ -150,10 +157,11 @@ export default function CleanerSchedule() {
                           <p className="truncate text-[10px] opacity-80">
                             {customer ? `${customer.first_name} ${(customer.last_name as string)?.charAt(0)}.` : "Customer"}
                           </p>
-                          <p className="truncate text-[10px] opacity-60">
-                            {job.bedrooms}bd/{job.bathrooms}ba
+                          <p className="truncate text-[10px] opacity-60 flex items-center gap-0.5">
+                            <MapPin className="w-2.5 h-2.5 shrink-0" />
+                            {job.address_line1}
                           </p>
-                        </div>
+                        </a>
                       );
                     })
                   )}
