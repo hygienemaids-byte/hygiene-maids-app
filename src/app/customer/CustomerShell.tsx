@@ -66,7 +66,7 @@ function SidebarNav({ collapsed, onToggle, initials }: { collapsed: boolean; onT
 
       {/* Book Now CTA */}
       <div className={`px-3 pt-4 pb-2 ${collapsed ? "px-2" : ""}`}>
-        <Link href="/book">
+        <Link href="/customer/book">
           <Button
             className={`w-full bg-teal-600 hover:bg-teal-700 text-white shadow-sm ${
               collapsed ? "px-0 justify-center" : ""
@@ -221,7 +221,7 @@ function MobileNav() {
         </div>
       </div>
       <div className="px-3 pt-4 pb-2">
-        <Link href="/book">
+        <Link href="/customer/book">
           <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">
             <Plus className="w-4 h-4 mr-2" />
             Book a Cleaning

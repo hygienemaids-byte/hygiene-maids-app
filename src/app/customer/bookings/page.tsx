@@ -196,7 +196,7 @@ export default function CustomerBookings() {
           <h1 className="text-2xl font-bold text-slate-900">My Bookings</h1>
           <p className="text-sm text-slate-500 mt-1">{upcomingCount} upcoming &middot; {bookings.length} total</p>
         </div>
-        <Link href="/book"><Button className="bg-teal-600 hover:bg-teal-700 text-white"><Plus className="w-4 h-4 mr-1" /> Book New Cleaning</Button></Link>
+        <Link href="/customer/book"><Button className="bg-teal-600 hover:bg-teal-700 text-white"><Plus className="w-4 h-4 mr-1" /> Book New Cleaning</Button></Link>
       </div>
 
       {/* Next Booking */}
@@ -237,7 +237,7 @@ export default function CustomerBookings() {
           <CalendarDays className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500 font-medium">No bookings found</p>
           <p className="text-sm text-slate-400 mt-1">{filter === "upcoming" ? "No upcoming cleanings." : "No bookings match your filter."}</p>
-          <Link href="/book"><Button className="mt-4 bg-teal-600 hover:bg-teal-700 text-white">Book a Cleaning</Button></Link>
+          <Link href="/customer/book"><Button className="mt-4 bg-teal-600 hover:bg-teal-700 text-white">Book a Cleaning</Button></Link>
         </div>
       ) : (
         <div className="space-y-3">

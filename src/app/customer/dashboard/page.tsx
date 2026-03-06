@@ -88,7 +88,7 @@ export default function CustomerDashboard() {
               <p className="text-sm text-amber-700 mt-1">
                 Your account isn&apos;t linked to a customer profile yet. Book your first cleaning to get started!
               </p>
-              <Link href="/book">
+              <Link href="/customer/book">
                 <Button className="mt-3 bg-teal-600 hover:bg-teal-700">
                   <Sparkles className="w-4 h-4 mr-2" />
                   Book Your First Cleaning
@@ -219,7 +219,7 @@ export default function CustomerDashboard() {
             <p className="text-sm text-slate-500 mt-1 mb-4">
               Schedule your next professional cleaning today!
             </p>
-            <Link href="/book">
+            <Link href="/customer/book">
               <Button className="bg-teal-600 hover:bg-teal-700">Book Now</Button>
             </Link>
           </CardContent>
@@ -287,7 +287,7 @@ export default function CustomerDashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Link href="/book">
+        <Link href="/customer/book">
           <Card className="border-slate-200 bg-white hover:border-teal-300 hover:shadow-sm transition-all cursor-pointer group">
             <CardContent className="py-5 text-center">
               <Sparkles className="w-8 h-8 text-teal-500 mx-auto mb-2 group-hover:scale-110 transition-transform" />

@@ -21,6 +21,7 @@ import {
   Search,
   Sparkles,
   Menu,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +69,21 @@ function SidebarNav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () 
             <p className="text-[11px] text-sidebar-foreground/50">Admin Panel</p>
           </div>
         )}
+      </div>
+
+      {/* Book New CTA */}
+      <div className={`px-2 pt-3 pb-1 ${collapsed ? "px-1.5" : ""}`}>
+        <Link href="/admin/book">
+          <Button
+            className={`w-full bg-sidebar-primary hover:bg-sidebar-primary/90 text-sidebar-primary-foreground shadow-sm ${
+              collapsed ? "px-0 justify-center" : ""
+            }`}
+            size={collapsed ? "icon" : "default"}
+          >
+            <Plus className="w-4 h-4" />
+            {!collapsed && <span className="ml-2">Book New</span>}
+          </Button>
+        </Link>
       </div>
 
       {/* Navigation */}

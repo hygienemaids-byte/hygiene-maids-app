@@ -130,7 +130,7 @@ function formatPhone(value: string): string {
    COMPONENT
    ═══════════════════════════════════════════════════════════════════ */
 
-export default function BookingWizard({ data }: { data: PricingData }) {
+export default function BookingWizard({ data, embedded = false }: { data: PricingData; embedded?: boolean }) {
   const { pricingMatrix, frequencyDiscounts, extras, serviceAreas, taxRate } = data;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -608,28 +608,43 @@ export default function BookingWizard({ data }: { data: PricingData }) {
 
   if (bookingConfirmed) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#F8FAFB] to-[#F0F4F3]">
-        <section className="relative overflow-hidden bg-[#0C1829]">
-          <div className="absolute inset-0 opacity-10">
-            <img src={IMAGES.luxuryHero} alt="" className="w-full h-full object-cover" />
-          </div>
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0C1829]/80 via-[#0C1829]/95 to-[#0C1829]" />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-18 text-center">
+      <div className={embedded ? "bg-slate-50 p-6" : "min-h-screen bg-gradient-to-b from-[#F8FAFB] to-[#F0F4F3]"}>
+        {!embedded && (
+          <section className="relative overflow-hidden bg-[#0C1829]">
+            <div className="absolute inset-0 opacity-10">
+              <img src={IMAGES.luxuryHero} alt="" className="w-full h-full object-cover" />
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0C1829]/80 via-[#0C1829]/95 to-[#0C1829]" />
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-18 text-center">
+              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
+                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#0D9488]/20 flex items-center justify-center">
+                  <CheckCircle size={40} className="text-[#0D9488]" />
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-bold text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  Booking <span className="text-[#0D9488]">Confirmed!</span>
+                </h1>
+                <p className="mt-3 text-lg text-white/50 max-w-md mx-auto">
+                  {bookingConfirmed.message}
+                </p>
+              </motion.div>
+            </div>
+          </section>
+        )}
+        {embedded && (
+          <div className="text-center mb-6">
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#0D9488]/20 flex items-center justify-center">
-                <CheckCircle size={40} className="text-[#0D9488]" />
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#0D9488]/15 flex items-center justify-center">
+                <CheckCircle size={32} className="text-[#0D9488]" />
               </div>
-              <h1 className="text-3xl sm:text-4xl font-bold text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <h1 className="text-2xl font-bold text-slate-900" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 Booking <span className="text-[#0D9488]">Confirmed!</span>
               </h1>
-              <p className="mt-3 text-lg text-white/50 max-w-md mx-auto">
-                {bookingConfirmed.message}
-              </p>
+              <p className="mt-2 text-sm text-slate-500">{bookingConfirmed.message}</p>
             </motion.div>
           </div>
-        </section>
+        )}
 
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 -mt-8 pb-20">
+        <div className={`max-w-2xl mx-auto px-4 sm:px-6 pb-20 ${embedded ? "mt-0" : "-mt-8"}`}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -755,73 +770,46 @@ export default function BookingWizard({ data }: { data: PricingData }) {
      ═══════════════════════════════════════════════════════════════════ */
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#F8FAFB] to-[#F0F4F3]">
-      {/* ═══ HERO ═══ */}
-      <section className="relative overflow-hidden bg-[#0C1829]">
-        <div className="absolute inset-0 opacity-10">
-          <img src={IMAGES.luxuryHero} alt="" className="w-full h-full object-cover" />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0C1829]/80 via-[#0C1829]/95 to-[#0C1829]" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-18 text-center">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#0D9488]/15 border border-[#0D9488]/20 rounded-full mb-5">
-              <Sparkles size={13} className="text-[#0D9488]" />
-              <span className="text-xs font-semibold text-[#0D9488] tracking-wider uppercase">Instant Online Booking</span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-[1.1]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-              Book Your <span className="text-[#0D9488]">Professional Cleaning</span>
-            </h1>
-            <p className="mt-3 text-base sm:text-lg text-white/50 leading-relaxed max-w-xl mx-auto">
-              Get an instant quote in under 2 minutes. No obligations, no hidden fees.
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Breadcrumbs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-        <Breadcrumbs items={[{ label: "Book Now" }]} />
-      </div>
-
-      {/* ═══ STEP INDICATOR ═══ */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100/80">
-          <div className="flex items-center justify-between">
-            {STEPS.map((s, i) => (
-              <div key={s.id} className="flex items-center">
-                <button
-                  onClick={() => { if (s.id < step) { setStep(s.id); window.scrollTo({ top: 0, behavior: "smooth" }); } }}
-                  className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${
-                    s.id === step ? "scale-110" : s.id < step ? "cursor-pointer hover:scale-105" : "opacity-35"
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
-                    s.id === step
-                      ? "bg-gradient-to-br from-[#0D9488] to-[#0B7C72] text-white shadow-lg shadow-[#0D9488]/30"
-                      : s.id < step
-                        ? "bg-[#0D9488]/15 text-[#0D9488]"
-                        : "bg-gray-50 text-gray-300"
-                  }`}>
-                    {s.id < step ? <Check size={18} strokeWidth={3} /> : <s.icon size={17} />}
-                  </div>
-                  <span className={`text-[10px] font-bold tracking-wide hidden sm:block uppercase ${
-                    s.id === step ? "text-[#0D9488]" : s.id < step ? "text-[#0C1829]/70" : "text-gray-300"
-                  }`}>{s.label}</span>
-                </button>
-                {i < STEPS.length - 1 && (
-                  <div className="w-6 sm:w-12 h-[3px] mx-1 sm:mx-2 rounded-full transition-all duration-500 overflow-hidden bg-gray-100">
-                    <div className={`h-full rounded-full transition-all duration-500 ${
-                      s.id < step ? "w-full bg-gradient-to-r from-[#0D9488] to-[#0D9488]/70" : "w-0"
-                    }`} />
-                  </div>
-                )}
-              </div>
-            ))}
+    <div className={embedded ? "bg-slate-50" : "min-h-screen bg-gradient-to-b from-[#F8FAFB] to-[#F0F4F3]"}>
+      {/* ═══ HERO (public only) ═══ */}
+      {!embedded && (
+        <section className="relative overflow-hidden bg-[#0C1829]">
+          <div className="absolute inset-0 opacity-10">
+            <img src={IMAGES.luxuryHero} alt="" className="w-full h-full object-cover" />
           </div>
-          <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
-            <span className="text-xs text-gray-400 font-medium">Step {step} of {STEPS.length}</span>
-            <div className="flex items-center gap-1.5">
-              <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0C1829]/80 via-[#0C1829]/95 to-[#0C1829]" />
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-18 text-center">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#0D9488]/15 border border-[#0D9488]/20 rounded-full mb-5">
+                <Sparkles size={13} className="text-[#0D9488]" />
+                <span className="text-xs font-semibold text-[#0D9488] tracking-wider uppercase">Instant Online Booking</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-[1.1]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                Book Your <span className="text-[#0D9488]">Professional Cleaning</span>
+              </h1>
+              <p className="mt-3 text-base sm:text-lg text-white/50 leading-relaxed max-w-xl mx-auto">
+                Get an instant quote in under 2 minutes. No obligations, no hidden fees.
+              </p>
+            </motion.div>
+          </div>
+        </section>
+      )}
+
+      {/* Breadcrumbs (public only) */}
+      {!embedded && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <Breadcrumbs items={[{ label: "Book Now" }]} />
+        </div>
+      )}
+
+      {/* ═══ EMBEDDED HEADER ═══ */}
+      {embedded && (
+        <div className="px-6 pt-6 pb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-xl font-bold text-slate-900" style={{ fontFamily: "'DM Sans', sans-serif" }}>Book a Cleaning</h1>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-medium">Step {step} of {STEPS.length}</span>
+              <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                 <motion.div
                   className="h-full bg-gradient-to-r from-[#0D9488] to-[#0D9488]/70 rounded-full"
                   initial={false}
@@ -829,11 +817,10 @@ export default function BookingWizard({ data }: { data: PricingData }) {
                   transition={{ duration: 0.4, ease: "easeOut" }}
                 />
               </div>
-              <span className="text-xs font-bold text-[#0D9488]">{Math.round((step / STEPS.length) * 100)}%</span>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ═══ MAIN CONTENT ═══ */}
       <section className="pb-20">
@@ -1555,8 +1542,8 @@ export default function BookingWizard({ data }: { data: PricingData }) {
         </div>
       </section>
 
-      {/* ═══ HOW IT WORKS ═══ */}
-      <section className="py-20 bg-white">
+      {/* ═══ HOW IT WORKS (public only) ═══ */}
+      {!embedded && <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-bold text-[#0C1829]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -1581,7 +1568,7 @@ export default function BookingWizard({ data }: { data: PricingData }) {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
     </div>
   );
 }

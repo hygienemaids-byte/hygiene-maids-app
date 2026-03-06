@@ -94,7 +94,7 @@ export default function CustomerSchedule() {
             View and manage your cleaning schedule. Drag bookings to reschedule.
           </p>
         </div>
-        <Link href="/book">
+        <Link href="/customer/book">
           <Button className="bg-teal-600 hover:bg-teal-700" size="sm">
             <Sparkles className="w-3.5 h-3.5 mr-1" />
             Book New Cleaning
