@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { BRAND, IMAGES } from "@/lib/constants";
 import Breadcrumbs from "@/components/website/Breadcrumbs";
@@ -132,6 +133,13 @@ function formatPhone(value: string): string {
 export default function BookingWizard({ data }: { data: PricingData }) {
   const { pricingMatrix, frequencyDiscounts, extras, serviceAreas, taxRate } = data;
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rebookId = searchParams.get("rebook");
+
+  // ── Auth & Prefill State ──
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+  const [prefillLoaded, setPrefillLoaded] = useState(false);
 
   // ── Core State ──
   const [step, setStep] = useState(1);
@@ -175,6 +183,136 @@ export default function BookingWizard({ data }: { data: PricingData }) {
     message: string;
   } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // ── Account creation after booking ──
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [createPassword, setCreatePassword] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false);
+
+  // ═══════════════════════════════════════════════════════════════════
+  // PREFILL: Logged-in user + Rebook
+  // ═══════════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+
+    async function prefill() {
+      // Check if user is logged in
+      const { data: { user } } = await supabase.auth.getUser();
+      if (cancelled) return;
+
+      if (user) {
+        setIsLoggedIn(true);
+        setUserEmail(user.email || "");
+
+        // Fetch customer profile for prefill
+        const { data: customer } = await supabase
+          .from("customers")
+          .select("*")
+          .or(`profile_id.eq.${user.id},email.eq.${user.email}`)
+          .single();
+
+        if (customer && !cancelled) {
+          setContact(prev => ({
+            ...prev,
+            firstName: customer.first_name || prev.firstName,
+            lastName: customer.last_name || prev.lastName,
+            email: customer.email || user.email || prev.email,
+            phone: customer.phone ? formatPhone(customer.phone) : prev.phone,
+            addressLine1: customer.address_line1 || prev.addressLine1,
+            addressLine2: customer.address_line2 || prev.addressLine2,
+          }));
+          if (customer.zip_code) setZipCode(customer.zip_code);
+        } else if (user.email && !cancelled) {
+          setContact(prev => ({ ...prev, email: user.email || prev.email }));
+        }
+      }
+
+      // Rebook: fetch old booking and prefill
+      if (rebookId) {
+        const { data: oldBooking } = await supabase
+          .from("bookings")
+          .select("*")
+          .eq("id", rebookId)
+          .single();
+
+        if (oldBooking && !cancelled) {
+          if (oldBooking.zip_code) setZipCode(oldBooking.zip_code);
+          if (oldBooking.bedrooms) setBedrooms(oldBooking.bedrooms);
+          if (oldBooking.bathrooms) setBathrooms(oldBooking.bathrooms);
+          if (oldBooking.sqft_range) setSqftKey(oldBooking.sqft_range);
+          if (oldBooking.frequency) setFrequency(oldBooking.frequency);
+          if (oldBooking.has_pets) { setHasPets(true); setPetDetails(oldBooking.pet_details || ""); }
+          if (oldBooking.access_instructions) setAccessInstructions(oldBooking.access_instructions);
+          if (oldBooking.customer_notes) setContact(prev => ({ ...prev, notes: oldBooking.customer_notes }));
+
+          // Prefill contact from booking if not already set by logged-in user
+          if (!user) {
+            const { data: cust } = await supabase
+              .from("customers")
+              .select("*")
+              .eq("id", oldBooking.customer_id)
+              .single();
+            if (cust && !cancelled) {
+              setContact(prev => ({
+                ...prev,
+                firstName: cust.first_name || prev.firstName,
+                lastName: cust.last_name || prev.lastName,
+                email: cust.email || prev.email,
+                phone: cust.phone ? formatPhone(cust.phone) : prev.phone,
+                addressLine1: oldBooking.address_line1 || cust.address_line1 || prev.addressLine1,
+                addressLine2: oldBooking.address_line2 || cust.address_line2 || prev.addressLine2,
+              }));
+            }
+          } else {
+            setContact(prev => ({
+              ...prev,
+              addressLine1: oldBooking.address_line1 || prev.addressLine1,
+              addressLine2: oldBooking.address_line2 || prev.addressLine2,
+            }));
+          }
+        }
+      }
+
+      if (!cancelled) setPrefillLoaded(true);
+    }
+
+    prefill();
+    return () => { cancelled = true; };
+  }, [rebookId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ACCOUNT CREATION (after booking, for new customers)
+  // ═══════════════════════════════════════════════════════════════════
+
+  const handleCreateAccount = async () => {
+    if (!createPassword || createPassword.length < 6) return;
+    setCreatingAccount(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signUp({
+        email: contact.email.trim().toLowerCase(),
+        password: createPassword,
+        options: {
+          data: {
+            first_name: contact.firstName,
+            last_name: contact.lastName,
+            role: "customer",
+          },
+        },
+      });
+      if (error) throw error;
+      setAccountCreated(true);
+    } catch (err: any) {
+      if (err.message?.includes("already registered")) {
+        setAccountCreated(true); // They already have an account
+      }
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
 
   // ═══════════════════════════════════════════════════════════════════
   // DYNAMIC CASCADING FILTERS
@@ -538,13 +676,72 @@ export default function BookingWizard({ data }: { data: PricingData }) {
                 </div>
               </div>
 
+              {/* Account Creation for New Customers */}
+              {!isLoggedIn && !accountCreated && (
+                <div className="bg-gradient-to-r from-[#0D9488]/5 to-[#0B7C72]/5 rounded-xl p-4 border border-[#0D9488]/20">
+                  {!showCreateAccount ? (
+                    <div className="text-center">
+                      <Lock size={20} className="mx-auto text-[#0D9488] mb-2" />
+                      <p className="text-sm font-bold text-[#0C1829]">Create an account to manage your bookings</p>
+                      <p className="text-xs text-gray-500 mt-1">Track bookings, reschedule, view history, and more</p>
+                      <button
+                        onClick={() => setShowCreateAccount(true)}
+                        className="mt-3 px-6 py-2 bg-[#0D9488] text-white text-sm font-bold rounded-lg hover:bg-[#0B7C72] transition-colors"
+                      >
+                        Create Account
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-sm font-bold text-[#0C1829]">Set a password for your account</p>
+                      <p className="text-xs text-gray-500">Email: <strong>{contact.email}</strong></p>
+                      <input
+                        type="password"
+                        placeholder="Create a password (min 6 characters)"
+                        value={createPassword}
+                        onChange={e => setCreatePassword(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0D9488]/20 focus:border-[#0D9488] outline-none"
+                      />
+                      <button
+                        onClick={handleCreateAccount}
+                        disabled={creatingAccount || createPassword.length < 6}
+                        className="w-full py-2.5 bg-[#0D9488] text-white text-sm font-bold rounded-lg hover:bg-[#0B7C72] transition-colors disabled:opacity-50"
+                      >
+                        {creatingAccount ? "Creating..." : "Create Account"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {accountCreated && (
+                <div className="bg-green-50 rounded-xl p-4 border border-green-200 text-center">
+                  <CheckCircle size={20} className="mx-auto text-green-600 mb-2" />
+                  <p className="text-sm font-bold text-green-800">Account created! Check your email to verify.</p>
+                  <Link href="/auth/login" className="text-xs text-[#0D9488] font-semibold hover:underline mt-1 inline-block">Sign in to manage your bookings</Link>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <Link href="/" className="flex-1 py-3.5 bg-gradient-to-r from-[#0D9488] to-[#0B7C72] text-white font-bold rounded-xl text-center text-sm hover:shadow-lg hover:shadow-[#0D9488]/25 transition-all">
-                  Back to Home
-                </Link>
-                <button onClick={() => window.location.reload()} className="flex-1 py-3.5 bg-gray-50 text-[#0C1829] font-bold rounded-xl text-center text-sm hover:bg-gray-100 transition-all border border-gray-100">
-                  Book Another Cleaning
-                </button>
+                {isLoggedIn ? (
+                  <>
+                    <Link href="/customer/bookings" className="flex-1 py-3.5 bg-gradient-to-r from-[#0D9488] to-[#0B7C72] text-white font-bold rounded-xl text-center text-sm hover:shadow-lg hover:shadow-[#0D9488]/25 transition-all">
+                      Manage My Bookings
+                    </Link>
+                    <button onClick={() => window.location.reload()} className="flex-1 py-3.5 bg-gray-50 text-[#0C1829] font-bold rounded-xl text-center text-sm hover:bg-gray-100 transition-all border border-gray-100">
+                      Book Another Cleaning
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/" className="flex-1 py-3.5 bg-gradient-to-r from-[#0D9488] to-[#0B7C72] text-white font-bold rounded-xl text-center text-sm hover:shadow-lg hover:shadow-[#0D9488]/25 transition-all">
+                      Back to Home
+                    </Link>
+                    <button onClick={() => window.location.reload()} className="flex-1 py-3.5 bg-gray-50 text-[#0C1829] font-bold rounded-xl text-center text-sm hover:bg-gray-100 transition-all border border-gray-100">
+                      Book Another Cleaning
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

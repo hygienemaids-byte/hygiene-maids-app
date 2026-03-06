@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { createClient } from "@supabase/supabase-js";
 import BookingWizard from "./BookingWizard";
 
@@ -25,7 +26,22 @@ async function getPricingData() {
   };
 }
 
+function BookingWizardFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#F8FAFB] to-[#F0F4F3] flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-10 h-10 border-3 border-[#0D9488] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-sm text-gray-500 font-medium">Loading booking engine...</p>
+      </div>
+    </div>
+  );
+}
+
 export default async function BookPage() {
   const data = await getPricingData();
-  return <BookingWizard data={data} />;
+  return (
+    <Suspense fallback={<BookingWizardFallback />}>
+      <BookingWizard data={data} />
+    </Suspense>
+  );
 }
